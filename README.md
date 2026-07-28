@@ -98,8 +98,11 @@ In that framework, a path-dependent cost is written schematically as
 ```math
 E[\gamma]
 =
-\int_{\gamma}
-F\!\left(\gamma(\lambda),\dot{\gamma}(\lambda)\right)\,d\lambda .
+\int
+F\!\left(
+\gamma(\lambda),
+\frac{d\gamma(\lambda)}{d\lambda}
+\right)\,d\lambda .
 ```
 
 The present quantum-control study does not assume or test that framework.
@@ -114,13 +117,13 @@ The correspondence is structural rather than deductive:
 | General cost-layer idea | Operational object in this repository |
 |---|---|
 | Endpoint equivalence does not determine realization cost | Equal complete ideal unitary does not determine finite-noise task loss |
-| Cost depends on the executed path | `j1(z)` and `q2(z)` depend on the control trajectory and declared noise model |
+| Cost depends on the executed path | $j_1(z)$ and $q_2(z)$ depend on the control trajectory and declared noise model |
 | A limiting or ordering statement need not imply practical realization | Accurate ranking need not pass a predeclared utility threshold |
 | Structural claims require falsifiable gates | v2 is an expected negative; v3 is a positive under separately declared gates |
 
-For the quasi-static protocol, `q2(z)` is evaluated locally from the
-predeclared probes `xi = {-h,0,+h}`. It is used to freeze the candidate
-ranking before any held-out finite-`sigma` Gaussian-averaged loss is
+For the quasi-static protocol, $q_2(z)$ is evaluated locally from the
+predeclared probes $\xi\in\{-h,0,+h\}$. It is used to freeze the candidate
+ranking before any held-out finite-$\sigma$ Gaussian-averaged loss is
 evaluated. For sufficiently weak noise,
 
 ```math
@@ -129,8 +132,8 @@ evaluated. For sufficiently weak noise,
 J(z,0)+q_2(z)\sigma^2+O(\sigma^4).
 ```
 
-Because the endpoint-equivalent candidates share the same `J(z,0)` within
-the declared numerical tolerance, `q2(z)` determines their leading
+Because the endpoint-equivalent candidates share the same $J(z,0)$ within
+the declared numerical tolerance, $q_2(z)$ determines their leading
 weak-noise ordering. The substantive numerical result is the
 candidate-dependent susceptibility reduction and the finite declared window
 over which the selected advantage persists.
@@ -148,11 +151,11 @@ description and path-dependent implementation.
 
 | Protocol | Noise model | Frozen predictor | Verdict |
 |---|---|---|---|
-| v2.0.1 (`2c05a45f…`) | Weak local Markovian dephasing | First-order task slope `j1(z)` at `gamma = 0` | **Expected negative** — ranking succeeded (Spearman 1.0), but the predicted 0.484% and held-out 0.482% improvements failed the predeclared effect-size gates |
-| v3.0.2 (`c9917d51…`) | Zero-mean common quasi-static detuning | Local variance susceptibility `q2(z) = 0.5 d²J/dxi²` evaluated from the predeclared probes `xi = {-h,0,+h}` | **PASS** — predicted improvement 20.557%; held-out simulated improvement 20.319–20.554% |
+| v2.0.1 (`2c05a45f…`) | Weak local Markovian dephasing | First-order task slope $j_1(z)$ at $\gamma = 0$ | **Expected negative** — ranking succeeded (Spearman 1.0), but the predicted 0.484% and held-out 0.482% improvements failed the predeclared effect-size gates |
+| v3.0.2 (`c9917d51…`) | Zero-mean common quasi-static detuning | Local variance susceptibility $q_2(z)=0.5\,d^2J/d\xi^2$ evaluated from the predeclared probes $\xi\in\{-h,0,+h\}$ | **PASS** — predicted improvement 20.557%; held-out simulated improvement 20.319–20.554% |
 
-For v3, the selector uses the local probes `xi = {-h,0,+h}` but does not use
-any held-out finite-`sigma` Gaussian-averaged loss. The full ranking is written
+For v3, the selector uses the local probes $\xi\in\{-h,0,+h\}$ but does not use
+any held-out finite-$\sigma$ Gaussian-averaged loss. The full ranking is written
 to a certificate before those held-out losses are evaluated.
 
 Protocol-specific diagnostic runs are available with `--protocol v2` or
@@ -446,9 +449,9 @@ Result ZIP certificates:
    generate the finite candidate family is environment dependent.
 3. **Frozen prediction**
    - v2 ranks endpoint-valid candidates by the zero-noise Markovian task
-     derivative `j1(z)`;
-   - v3 ranks endpoint-valid candidates by `q2(z)`, evaluated from the
-     predeclared infinitesimal probes `xi = {-h,0,+h}`.
+     derivative $j_1(z)$;
+   - v3 ranks endpoint-valid candidates by $q_2(z)$, evaluated from the
+     predeclared infinitesimal probes $\xi\in\{-h,0,+h\}$.
 
    The complete candidate ranking and controls are written to disk before any
    held-out finite-noise loss is evaluated.

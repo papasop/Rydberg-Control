@@ -21,13 +21,65 @@ simulated outcomes, not PASQAL production compilation, cloud execution,
 physical-QPU measurements, a universal path cost, or evidence beyond standard
 quantum mechanics.
 
+**Audited clean-clone commit:** `d532e30c2cbf307501a84ba9951dbaba6084cf79`
+
+`main` may continue to receive documentation and verification improvements.
+For the exact audited reproduction record corresponding to the paper package,
+use the fixed commit above or the Zenodo DOI in the Reference section.
+
+## Quick reproduction
+
+Run the strict clean-clone workflow with CPython 3.12:
+
+```bash
+git clone https://github.com/papasop/fixed-unitary-noise-robust-control.git && cd fixed-unitary-noise-robust-control && git checkout d532e30c2cbf307501a84ba9951dbaba6084cf79 && python3.12 -m venv .venv && .venv/bin/python -m pip install -r requirements-lock-python312.txt && .venv/bin/python reproduce.py --protocol all --strict-environment
+```
+
+This command performs fresh two-stage v2.0.1/v3.0.2 reproduction, then runs
+`verify_v201_strict_v1.py`, `verify_v302_strict_v1.py`,
+`audit_repository.py`, and the tamper-test suite. The overall status is
+`REPRODUCED_EXPECTED_RESULTS` only if all of those checks pass. v2.0.1 is an
+expected scientific negative (`REPRODUCED_EXPECTED_NEGATIVE`); v3.0.2 is an
+expected scientific positive (`REPRODUCED_EXPECTED_PASS`).
+
+For the current `main` checkout, run:
+
+```bash
+python -m pip install -r requirements-lock-python312.txt
+python reproduce.py --protocol all --strict-environment
+```
+
+Docker is the recommended route when a local CPython 3.12 environment is not
+already available:
+
+```bash
+docker build -t fixed-unitary-noise-robust-control .
+docker run --rm -v "$PWD/external_runs:/app/external_runs" fixed-unitary-noise-robust-control
+```
+
+Shell and Windows entry points are also provided; pass strict mode explicitly:
+
+```bash
+./reproduce.sh --strict-environment
+pwsh ./reproduce.ps1 --strict-environment
+```
+
+No Pulser, Qiskit, PASQAL SDK, GPU, or Jupyter runtime is required.
+
 ## Conceptual provenance: a path-dependent realization layer
 
 This repository was motivated by a broader structural idea developed in the
 author's work on information time, Principle R, and the K=1 framework:
 physical change may possess a realization-cost layer that is not determined
-by the endpoint alone. In that framework, a path-dependent cost is written
-schematically as
+by the endpoint alone. The immediate source records are:
+
+- *A Principle of Physical Realizability: Attainability and Local Zero Modes*,
+  Zenodo, 2026-07-26, DOI
+  [`10.5281/zenodo.21591729`](https://doi.org/10.5281/zenodo.21591729)
+- *K=1 Chronogeometrodynamics*, Zenodo, 2026-07-21, DOI
+  [`10.5281/zenodo.21472576`](https://doi.org/10.5281/zenodo.21472576)
+
+In that framework, a path-dependent cost is written schematically as
 
 \[
 E[\gamma]=\int_\gamma F(\gamma,\dot{\gamma})\,d\lambda .
@@ -85,32 +137,6 @@ For v3, the selector uses the local probes `xi = {-h,0,+h}` but does not use
 any held-out finite-`sigma` Gaussian-averaged loss. The full ranking is written
 to a certificate before those held-out losses are evaluated.
 
-## One-command external reproduction
-
-For a fresh clone, install the locked direct dependencies and run the strict
-wrapper:
-
-```bash
-python -m pip install -r requirements-lock-python312.txt
-python reproduce.py --protocol all --strict-environment
-```
-
-This command verifies the checked-out Git commit reported in
-`environment.json` and printed by `--preflight`. It performs fresh two-stage
-v2.0.1/v3.0.2 reproduction, then runs `verify_v201_strict_v1.py`,
-`verify_v302_strict_v1.py`, `audit_repository.py`, and the tamper-test suite.
-The overall status is `REPRODUCED_EXPECTED_RESULTS` only if all of those checks
-pass. v2.0.1 is an expected scientific negative
-(`REPRODUCED_EXPECTED_NEGATIVE`); v3.0.2 is an expected scientific positive
-(`REPRODUCED_EXPECTED_PASS`).
-
-Shell and Windows entry points are also provided; pass strict mode explicitly:
-
-```bash
-./reproduce.sh --strict-environment
-pwsh ./reproduce.ps1 --strict-environment
-```
-
 Protocol-specific diagnostic runs are available with `--protocol v2` or
 `--protocol v3`. Each run writes a unique, never-overwritten directory under
 `external_runs/YYYYMMDDTHHMMSSZ_<short-id>/` containing environment metadata,
@@ -125,29 +151,18 @@ numerical reproduction and scientific status.
 The wrapper deliberately does **not** call the historical `--one-click` paths.
 For each protocol it runs a commitment subprocess, reads the actual
 `prospective_protocol.json`, then runs held-out evaluation with that manifest
-and independently classifies the result. The internal ordering barrier is a
+and classifies the result in the wrapper. The internal ordering barrier is a
 programmatic workflow barrier, not external preregistration.
 
 The legacy `pasqal_kqs_v302_one_click.py` and `pasqal_kz_v201_one_click.py`
 entry points are compatibility shims that delegate to the strict verifiers.
 
-Docker reproduction:
-
-```bash
-docker build -t fixed-unitary-noise-robust-control .
-docker run --rm -v "$PWD/external_runs:/app/external_runs" fixed-unitary-noise-robust-control
-```
-
-Docker is the recommended route when a local CPython 3.12 environment is not
-already available.
-
-No Pulser, Qiskit, PASQAL SDK, GPU, or Jupyter runtime is required. See
-`KNOWN_LIMITATIONS.md` for the remaining historical limitations and why the new
-wrapper documents rather than rewrites them.
-
 The v2.0.1 failure is reported as part of the frozen evaluation trail:
 the same predictor architecture yields a real, falsifiable negative under one
 noise model and a positive under another.
+
+See `REFERENCE_RUNS.md`, `STRICT_AUDIT_201_302.md`, `CORRIGENDA.md`, and
+`KNOWN_LIMITATIONS.md` for historical hashes, limitations, and repair details.
 
 ---
 
@@ -166,7 +181,7 @@ noise model and a positive under another.
 ├── pasqal_kz_v201_one_click.py                # legacy shim -> strict verifier
 ├── audit_repository.py                        # repository-level audit
 ├── manifests/                                 # frozen protocols (2c05a45f…, c9917d51…)
-├── results/                                   # independent CPython 3.9.6 reruns
+├── results/                                   # public CPython 3.9.6 reruns
 ├── external_runs/                             # never-overwritten reproduction records
 ├── REFERENCE_RUNS.md                          # reference vs public-rerun hash record
 ├── ARTIFACTS.sha256                           # repository file-byte checksums
@@ -222,12 +237,12 @@ additional falsification tests.
 ## 3. Data provenance
 
 The manuscript reports the original CPython 3.12 evaluation and its reference
-hashes. The committed artifacts under `manifests/` and `results/` were
-independently regenerated on CPython 3.9.6 with NumPy 2.0.2 from the published
-scripts. They reproduce the protocol-content hashes, selected controls,
-scientific verdicts, gate outcomes, and reported effect sizes. Some
-floating-point values, source identities, and ranking-certificate byte hashes
-differ from the original CPython 3.12 run.
+hashes. The committed artifacts under `manifests/` and `results/` are public
+clean-environment reruns on CPython 3.9.6 with NumPy 2.0.2 from the published
+scripts, not an independent third-party reproduction. They reproduce the
+protocol-content hashes, selected controls, scientific verdicts, gate outcomes,
+and reported effect sizes. Some floating-point values, source identities, and
+ranking-certificate byte hashes differ from the original CPython 3.12 run.
 
 The public rerun artifacts must therefore not be interpreted as the original
 byte-level reference artifacts. If the original CPython 3.12 files are later
@@ -239,8 +254,7 @@ reference and public-rerun hash record.
 
 ## 4. External verification record
 
-Independent clean-clone runs of the one-command workflow (`external_runs/`)
-have reported:
+Clean-clone runs of the one-command workflow (`external_runs/`) have reported:
 
 - `REPRODUCED_EXPECTED_RESULTS` (overall)
 - v2.0.1: `REPRODUCED_EXPECTED_NEGATIVE`; v3.0.2:
@@ -311,7 +325,7 @@ existing output directory).
 ### Reference CPython 3.12 headline numbers reported in the manuscript
 
 The numbers below are from the original CPython 3.12 reference evaluation. The
-committed `results/v3.0.2/summary.json` is an independent CPython 3.9.6 rerun.
+committed `results/v3.0.2/summary.json` is a public CPython 3.9.6 rerun.
 It reproduces the selected control, scientific verdict, gate outcomes, and
 effect size, but is not byte-identical to the reference output.
 
@@ -453,9 +467,20 @@ scope boundary above: exact local simulation, not PASQAL production
 compilation, cloud execution, or hardware evidence.
 
 The companion manuscript reports the original CPython 3.12 reference
-evaluation; this repository hosts the protocols, hashes, independent reruns,
-and verification machinery. See `REFERENCE_RUNS.md` for the exact
-relationship.
+evaluation; this repository hosts the protocols, hashes, public reruns, and
+verification machinery. See `REFERENCE_RUNS.md` for the exact relationship.
+
+### Conceptual source records
+
+The conceptual provenance section above points to two separate theoretical
+records. They are related background, not assumptions or evidence for the
+present quantum-control result:
+
+- *A Principle of Physical Realizability: Attainability and Local Zero Modes*,
+  Zenodo, 2026-07-26:
+  https://doi.org/10.5281/zenodo.21591729
+- *K=1 Chronogeometrodynamics*, Zenodo, 2026-07-21:
+  https://doi.org/10.5281/zenodo.21472576
 
 The v1 path-response construction (CW/CCW/ALT lifts, K_z first-order closure
 to 1.1%) is described in the accompanying paper and reproduced by

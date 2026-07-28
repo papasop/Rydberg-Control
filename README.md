@@ -31,7 +31,8 @@ use the fixed commit above or the Zenodo DOI in the Reference section.
 
 ### Standard Linux/macOS with a working CPython 3.12 venv
 
-Run the strict clean-clone workflow as one shell invocation:
+Run the strict clean-clone workflow as one shell invocation. Use an isolated
+Python 3.12 environment for reproduction:
 
 ```bash
 git clone https://github.com/papasop/fixed-unitary-noise-robust-control.git && cd fixed-unitary-noise-robust-control && git checkout d532e30c2cbf307501a84ba9951dbaba6084cf79 && python3.12 -m venv .venv && .venv/bin/python -m pip install -r requirements-lock-python312.txt && .venv/bin/python reproduce.py --protocol all --strict-environment
@@ -47,6 +48,7 @@ Use `virtualenv` instead. Paste the following into a new Google Colab code cell:
 set -euo pipefail
 
 RUN_ROOT="/content/fixed-unitary-reproduction-$(date -u +%Y%m%dT%H%M%SZ)"
+echo "$RUN_ROOT" > /content/LAST_FIXED_UNITARY_REPRO.txt
 
 git clone \
   https://github.com/papasop/fixed-unitary-noise-robust-control.git \

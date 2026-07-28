@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-K_qs(z)-GUIDED QUASI-STATIC DETUNING OPTIMIZATION v3.0.2
+K(z)-GUIDED PROSPECTIVE TASK-LOSS RANKING v2.0.1
 
 Two-stage, falsifiable local-model protocol.
 
@@ -9,24 +9,23 @@ Stage 1 (default): write and hash a frozen protocol.  No Hamiltonian,
 K(z), candidate, or noisy-channel outcome is computed.
 
 Stage 2:
-    python pasqal_kz_quasistatic_ranking_v3_0_2.py \
+    python pasqal_kz_task_ranking_prospective_v2_0_1.py \
         --evaluate --expected-hash <HASH_FROM_STAGE_1>
 
 The evaluator:
   1. constructs a deterministic finite set of full-unitary-equivalent
      two-atom, six-segment Rydberg controls;
-  2. ranks every valid candidate using only its zero-noise, ideal-path
-     quasi-static variance susceptibility K_qs(z);
+  2. ranks every valid candidate using only its ideal-path first-order
+     dissipative predictor K(z);
   3. freezes the complete predicted ranking and every control to disk;
-  4. only then evaluates exact finite-noise quasi-static task losses;
+  4. only then evaluates exact finite-noise Lindblad task losses;
   5. tests rank correlation, pairwise ordering, top-k recovery, and whether
      the predicted winner improves on the reference.
 
 The scalar task is state-transfer infidelity for input |00> relative to the
-common ideal output U0|00>.  The noise model is a zero-mean common
-quasi-static detuning offset.  This is an exact local model, not Pulser
-production compilation, cloud execution, QPU evidence, or a universal
-robustness claim.
+common ideal output U0|00>.  The noise model is weak local occupation
+dephasing.  This is an exact local model, not Pulser production compilation,
+cloud execution, QPU evidence, or a universal robustness claim.
 
 Dependencies: NumPy, SciPy.
 """
@@ -40,7 +39,6 @@ import math
 import marshal
 import platform
 import sys
-import types
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -52,7 +50,7 @@ from scipy.optimize import least_squares
 from scipy.stats import kendalltau, spearmanr
 
 
-SCRIPT_ID = "KQS-PROSPECTIVE-DETUNING-RANKING-v3.0.2"
+SCRIPT_ID = "KZ-PROSPECTIVE-TASK-LOSS-RANKING-v2.0.1"
 C6 = 5_420_158.53  # rad um^6 / us
 FLOOR = 1e-14
 
@@ -72,7 +70,7 @@ PROTOCOL: dict[str, Any] = {
         "equivalence": "complete ideal unitary up to global phase",
         "jacobian_fd": 0.001,
         "rank_relative_cut": 1e-6,
-        "candidate_tangent_amplitudes": [0.030, 0.060, 0.100, 0.150],
+        "candidate_tangent_amplitudes": [0.010, 0.020, 0.030],
         "candidate_directions":
             "plus/minus each deterministic right-null singular vector",
         "endpoint_infidelity_tol": 1e-11,
@@ -80,27 +78,24 @@ PROTOCOL: dict[str, Any] = {
         "minimum_control_separation": 1e-5,
     },
     "noise": {
-        "model": "zero-mean common quasi-static detuning offset",
-        "offset_units": "rad/us",
-        "predictor_step_rad_per_us": 0.002,
-        "heldout_sigma_rad_per_us": [0.03, 0.06, 0.12, 0.24],
-        "gauss_hermite_order": 15,
-        "selection_uses_heldout_sigma_or_averaged_losses": False,
+        "model": "local occupation dephasing",
+        "jump_operators": ["n1", "n2"],
+        "selection_uses_exact_noisy_channels": False,
+        "heldout_gamma_per_us": [0.00375, 0.00750, 0.01500, 0.03000],
     },
     "task": {
         "input_state": "|00>",
         "ideal_target": "U0|00>",
         "loss":
-            "Jbar(z,sigma)=E_xi[1-|<psi_target|U_z(xi)|00>|^2], "
-            "xi~Normal(0,sigma^2)",
+            "J(z,gamma)=1-<psi_target|E_z(gamma)(|00><00|)|psi_target>",
         "predictor":
-            "q2(z)=0.5*d^2 J(z,xi)/dxi^2 at xi=0; "
-            "for zero-mean quasi-static noise, E[J]=J0+q2*sigma^2+O(sigma^4)",
+            "j1(z)=-Re Tr[rho_target G_z(rho00)], "
+            "G_z=dE_z/dgamma at gamma=0",
     },
     "ranking": {
         "population": "all endpoint-valid non-reference candidates",
         "rule":
-            "ascending q2(z), with deterministic candidate_id tie-break",
+            "ascending j1(z), with deterministic candidate_id tie-break",
         "frozen_artifact":
             "predicted_ranking_frozen_before_heldout.json",
         "top_fraction": 0.20,
@@ -109,7 +104,7 @@ PROTOCOL: dict[str, Any] = {
     "selection": {
         "rule":
             "among endpoint-valid candidates choose the smallest predicted "
-            "quasi-static variance susceptibility q2; candidate_id tie-break",
+            "first-order slope j1; deterministic candidate_id tie-break",
         "reference_not_used_as_candidate": True,
         "minimum_predicted_relative_improvement": 0.01,
     },
@@ -123,17 +118,16 @@ PROTOCOL: dict[str, Any] = {
         "minimum_relative_improvement_each_gamma": 0.005,
         "selected_rank_fraction_max_each_gamma": 0.20,
         "prediction_sign_correct_at_every_gamma": True,
-        "maximum_first_order_relative_error": 0.20,
+        "maximum_first_order_relative_error": 0.15,
     },
     "negative_controls": {
         "unselected_candidates_are_evaluated": True,
         "selection_must_not_be_worst_at_any_gamma": True,
     },
     "claim_boundary": (
-        "A PASS supports the prospective claim that an ideal-path K_qs(z) "
-        "variance susceptibility ranks finite quasi-static-detuning "
-        "state-transfer losses in this frozen exact two-atom, six-segment "
-        "model. The held-out "
+        "A PASS supports the prospective claim that an ideal-path K(z)-derived "
+        "first-order score ranks finite-noise state-transfer losses in this "
+        "frozen exact two-atom, six-segment, local-dephasing model. The held-out "
         "losses are simulated outcomes, not measurements. It is not PASQAL "
         "production compilation, hardware/cloud evidence, a universal "
         "path-cost, or physics beyond standard Lindblad quantum mechanics."
@@ -154,7 +148,7 @@ def protocol_hash() -> str:
 def program_name() -> str:
     return Path(
         globals().get(
-            "__file__", "pasqal_kz_quasistatic_ranking_v3_0_2.py"
+            "__file__", "pasqal_kz_task_ranking_prospective_v2_0_1.py"
         )
     ).name
 
@@ -168,69 +162,31 @@ def source_hash() -> str:
     a commitment made through the supported file workflow always stores the
     byte-for-byte SHA-256 of this script.
     """
-    # Deliberately do not inspect __file__. IPython mutates/removes it after
-    # %run, while pasted cells have no stable source path. The explicit logic
-    # inventory below is invariant to unrelated notebook variables.
-    def normalized_constant(value: Any) -> Any:
-        if isinstance(value, types.CodeType):
-            return {"code": normalized_code(value)}
-        if isinstance(value, tuple):
-            return {"tuple": [normalized_constant(v) for v in value]}
-        if isinstance(value, frozenset):
-            items = [normalized_constant(v) for v in value]
-            return {"frozenset": sorted(
-                items, key=lambda item: canonical_bytes(item)
-            )}
-        if isinstance(value, bytes):
-            return {"bytes_hex": value.hex()}
-        if value is None or isinstance(
-            value, (str, int, float, complex, bool)
-        ):
-            return {
-                "type": type(value).__name__,
-                "value": repr(value),
-            }
-        return {
-            "type": type(value).__qualname__,
-            "repr": repr(value),
-        }
+    source_path_text = globals().get("__file__")
+    if source_path_text:
+        source_path = Path(source_path_text).resolve()
+        if source_path.is_file():
+            return hashlib.sha256(source_path.read_bytes()).hexdigest()
 
-    def normalized_code(code: types.CodeType) -> dict[str, Any]:
-        return {
-            "argcount": code.co_argcount,
-            "posonlyargcount": code.co_posonlyargcount,
-            "kwonlyargcount": code.co_kwonlyargcount,
-            "nlocals": code.co_nlocals,
-            "flags": code.co_flags,
-            "bytecode_hex": code.co_code.hex(),
-            "names": list(code.co_names),
-            "varnames": list(code.co_varnames),
-            "freevars": list(code.co_freevars),
-            "cellvars": list(code.co_cellvars),
-            "constants": [
-                normalized_constant(v) for v in code.co_consts
-            ],
-        }
-
-    inventory: dict[str, Any] = {"protocol": PROTOCOL, "functions": {}}
-    function_names = [
-        "canonical_bytes", "protocol_hash", "program_name", "source_hash",
-        "clean", "write_json", "vec", "unvec", "endpoint_jacobian",
-        "endpoint_geometry", "corrected_candidate", "generate_candidates",
-        "pairwise_concordance", "evaluate", "commit", "parse_args", "main",
-    ]
-    for name in function_names:
-        code = getattr(globals().get(name), "__code__", None)
-        if code is None:
-            raise RuntimeError(f"cannot hash required function: {name}")
-        inventory["functions"][f"function:{name}"] = normalized_code(code)
-    for method_name, method in sorted(vars(Model).items()):
-        method_code = getattr(method, "__code__", None)
-        if method_code is not None:
-            inventory["functions"][
-                f"class:Model.{method_name}"
-            ] = normalized_code(method_code)
-    return hashlib.sha256(canonical_bytes(inventory)).hexdigest()
+    h = hashlib.sha256()
+    h.update(canonical_bytes(PROTOCOL))
+    for name, obj in sorted(globals().items()):
+        if name.startswith("__"):
+            continue
+        code = getattr(obj, "__code__", None)
+        if code is not None:
+            h.update(f"function:{name}\n".encode("utf-8"))
+            h.update(marshal.dumps(code))
+            continue
+        if isinstance(obj, type) and getattr(obj, "__module__", None) == __name__:
+            for method_name, method in sorted(vars(obj).items()):
+                method_code = getattr(method, "__code__", None)
+                if method_code is not None:
+                    h.update(
+                        f"class:{name}.{method_name}\n".encode("utf-8")
+                    )
+                    h.update(marshal.dumps(method_code))
+    return h.hexdigest()
 
 
 def clean(value: Any) -> Any:
@@ -309,16 +265,11 @@ class Model:
         psi_target = self.U0 @ ket00
         self.rho_target = np.outer(psi_target, psi_target.conj())
 
-    def hamiltonian(
-        self, z: np.ndarray, j: int, detuning_offset: float = 0.0
-    ) -> np.ndarray:
+    def hamiltonian(self, z: np.ndarray, j: int) -> np.ndarray:
         omega = self.omega0[j] * (1.0 + z[3 * j])
         if omega <= 0:
             raise ValueError("candidate has non-positive Rabi amplitude")
-        delta = (
-            self.delta0[j] + 2 * np.pi * z[3 * j + 1]
-            + float(detuning_offset)
-        )
+        delta = self.delta0[j] + 2 * np.pi * z[3 * j + 1]
         phase = self.phase0[j] + z[3 * j + 2]
         return (
             0.5 * omega
@@ -327,12 +278,10 @@ class Model:
             + self.V
         )
 
-    def unitary(
-        self, z: np.ndarray, detuning_offset: float = 0.0
-    ) -> np.ndarray:
+    def unitary(self, z: np.ndarray) -> np.ndarray:
         u = self.I.copy()
         for j in range(6):
-            u = expm(-1j * self.hamiltonian(z, j, detuning_offset)
+            u = expm(-1j * self.hamiltonian(z, j)
                      * self.segment_duration_us) @ u
         return u
 
@@ -384,37 +333,6 @@ class Model:
     def predicted_slope(self, derivative: np.ndarray) -> float:
         drho = unvec(derivative @ vec(self.rho_in), self.d)
         return float(-np.real(np.trace(self.rho_target @ drho)))
-
-    def coherent_task_loss(
-        self, z: np.ndarray, detuning_offset: float
-    ) -> float:
-        psi = self.unitary(z, detuning_offset) @ np.array(
-            [1, 0, 0, 0], dtype=complex
-        )
-        fidelity = float(np.real(np.vdot(
-            psi, self.rho_target @ psi
-        )))
-        return float(max(0.0, 1.0 - min(1.0, fidelity)))
-
-    def quasistatic_susceptibility(self, z: np.ndarray) -> float:
-        h = float(PROTOCOL["noise"]["predictor_step_rad_per_us"])
-        jp = self.coherent_task_loss(z, +h)
-        j0 = self.coherent_task_loss(z, 0.0)
-        jm = self.coherent_task_loss(z, -h)
-        return float((jp - 2.0 * j0 + jm) / (2.0 * h * h))
-
-    def averaged_quasistatic_loss(
-        self, z: np.ndarray, sigma: float
-    ) -> float:
-        order = int(PROTOCOL["noise"]["gauss_hermite_order"])
-        nodes, weights = np.polynomial.hermite.hermgauss(order)
-        losses = [
-            self.coherent_task_loss(
-                z, math.sqrt(2.0) * float(sigma) * float(node)
-            )
-            for node in nodes
-        ]
-        return float(np.dot(weights, losses) / math.sqrt(math.pi))
 
 
 def endpoint_jacobian(model: Model, z: np.ndarray, h: float) -> np.ndarray:
@@ -506,7 +424,10 @@ def generate_candidates(
                     z, diagnostic = corrected_candidate(
                         model, tangent, signed, normal
                     )
-                    slope = model.quasistatic_susceptibility(z)
+                    _, derivative, k_response = (
+                        model.channel_and_derivative(z)
+                    )
+                    slope = model.predicted_slope(derivative)
                     valid = bool(
                         diagnostic["optimizer_success"]
                         and diagnostic["endpoint_infidelity"]
@@ -522,8 +443,7 @@ def generate_candidates(
                         "signed_amplitude": signed,
                         "z": z,
                         "predicted_slope": slope,
-                        "predictor_kind":
-                            "quasi-static variance susceptibility",
+                        "k_norm": float(np.linalg.norm(k_response, "fro")),
                         "valid": valid,
                         **diagnostic,
                     })
@@ -601,7 +521,8 @@ def evaluate(args: argparse.Namespace) -> int:
         print(json.dumps(clean(result), indent=2))
         return 2
 
-    reference_slope = model.quasistatic_susceptibility(model.z0)
+    _, derivative0, k0 = model.channel_and_derivative(model.z0)
+    reference_slope = model.predicted_slope(derivative0)
     candidates = generate_candidates(model, geometry)
     valid = [row for row in candidates if row.get("valid", False)]
     if not valid:
@@ -619,6 +540,7 @@ def evaluate(args: argparse.Namespace) -> int:
     for predicted_rank, row in enumerate(predicted_order, start=1):
         row["predicted_rank"] = predicted_rank
     selected = predicted_order[0]
+    _, _, selected_k = model.channel_and_derivative(selected["z"])
     predicted_relative_improvement = (
         (reference_slope - selected["predicted_slope"])
         / max(abs(reference_slope), FLOOR)
@@ -628,7 +550,7 @@ def evaluate(args: argparse.Namespace) -> int:
         >= PROTOCOL["selection"]["minimum_predicted_relative_improvement"]
     )
 
-    # Ordering barrier: no finite-sigma averaged loss has been computed above.
+    # Ordering barrier: no finite-gamma channel has been computed above.
     ranking_certificate = {
         "protocol_sha256": expected,
         "ranking_rule": PROTOCOL["ranking"]["rule"],
@@ -662,17 +584,19 @@ def evaluate(args: argparse.Namespace) -> int:
         (row["candidate_id"], row["z"]) for row in valid
     ]
     losses_by_gamma: dict[float, list[tuple[str, float]]] = {}
-    for gamma in PROTOCOL["noise"]["heldout_sigma_rad_per_us"]:
+    for gamma in PROTOCOL["noise"]["heldout_gamma_per_us"]:
         values = []
         for candidate_id, z in all_eval:
-            loss = model.averaged_quasistatic_loss(z, float(gamma))
+            loss = model.task_loss_from_channel(
+                model.noisy_channel(z, float(gamma))
+            )
             values.append((candidate_id, loss))
         losses_by_gamma[float(gamma)] = values
         lookup = dict(values)
         loss0 = lookup["reference"]
         loss1 = lookup[selected["candidate_id"]]
         relative_improvement = (loss0 - loss1) / max(loss0, FLOOR)
-        predicted_difference = float(gamma) ** 2 * (
+        predicted_difference = float(gamma) * (
             selected["predicted_slope"] - reference_slope
         )
         exact_difference = loss1 - loss0
@@ -724,7 +648,7 @@ def evaluate(args: argparse.Namespace) -> int:
         selected_rank = actual_rank[selected["candidate_id"]]
         for row in predicted_order:
             candidate_loss_rows.append({
-                "sigma_detuning_rad_per_us": float(gamma),
+                "gamma_per_us": float(gamma),
                 "candidate_id": row["candidate_id"],
                 "predicted_slope": row["predicted_slope"],
                 "predicted_rank": row["predicted_rank"],
@@ -732,7 +656,7 @@ def evaluate(args: argparse.Namespace) -> int:
                 "actual_rank": actual_rank[row["candidate_id"]],
             })
         gamma_rows.append({
-            "sigma_detuning_rad_per_us": float(gamma),
+            "gamma_per_us": float(gamma),
             "reference_loss": loss0,
             "selected_loss": loss1,
             "exact_loss_difference": exact_difference,
@@ -839,8 +763,9 @@ def evaluate(args: argparse.Namespace) -> int:
             "reference_predicted_slope": reference_slope,
             "selected_predicted_slope": selected["predicted_slope"],
             "predicted_relative_improvement": predicted_relative_improvement,
-            "predictor_difference":
-                selected["predicted_slope"] - reference_slope,
+            "delta_K_frobenius_over_16": float(
+                np.linalg.norm(selected_k - k0, "fro") / 16
+            ),
         },
         "heldout_rows": gamma_rows,
         "worst_selected_rank_fraction": max_rank_fraction,
@@ -871,7 +796,7 @@ def evaluate(args: argparse.Namespace) -> int:
     ])
 
     print("=" * 96)
-    print("K_qs(z)-GUIDED QUASI-STATIC DETUNING OPTIMIZATION v3.0.2")
+    print("K(z)-GUIDED PROSPECTIVE TASK-LOSS RANKING v2.0.1")
     print("=" * 96)
     print(json.dumps(clean(summary), indent=2, ensure_ascii=False))
     print(f"outputs={out}")
@@ -946,7 +871,7 @@ def commit(args: argparse.Namespace) -> int:
     }
     write_json(out / "prospective_protocol.json", manifest)
     print("=" * 96)
-    print("K_qs(z)-GUIDED QUASI-STATIC OPTIMIZATION — COMMITMENT")
+    print("PASQAL-RELEVANT K(z)-GUIDED PROSPECTIVE OPTIMIZATION — COMMITMENT")
     print("=" * 96)
     print(json.dumps(clean(manifest), indent=2, ensure_ascii=False))
     print("\nNO HAMILTONIAN, K(z), CANDIDATE, OR NOISY OUTCOME WAS COMPUTED.")
@@ -963,19 +888,12 @@ def commit(args: argparse.Namespace) -> int:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--evaluate", action="store_true")
-    parser.add_argument(
-        "--one-click",
-        action="store_true",
-        help="freeze the protocol, then evaluate it in the same invocation",
-    )
     parser.add_argument("--expected-hash", default=None)
     parser.add_argument("--manifest", default=None)
     parser.add_argument("--outdir", default=None)
     args, unknown = parser.parse_known_args()
     if unknown:
         print(f"[notebook] ignored kernel arguments: {unknown}")
-    if args.evaluate and args.one_click:
-        parser.error("choose either --evaluate or --one-click")
     if args.evaluate and not args.expected_hash:
         parser.error("--evaluate requires --expected-hash")
     return args
@@ -983,29 +901,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    if args.one_click:
-        digest = protocol_hash()
-        commit_args = argparse.Namespace(
-            evaluate=False,
-            one_click=False,
-            expected_hash=None,
-            manifest=None,
-            outdir=None,
-        )
-        commit(commit_args)
-        evaluate_args = argparse.Namespace(
-            evaluate=True,
-            one_click=False,
-            expected_hash=digest,
-            manifest=str(
-                Path(f"pasqal_kz_commit_{digest[:12]}")
-                / "prospective_protocol.json"
-            ),
-            outdir=None,
-        )
-        code = evaluate(evaluate_args)
-    else:
-        code = evaluate(args) if args.evaluate else commit(args)
+    code = evaluate(args) if args.evaluate else commit(args)
     # Avoid sys.exit() in notebooks; the printed verdict and summary file carry
     # the scientific status.  Shell callers can inspect failed gates in JSON.
     if code:

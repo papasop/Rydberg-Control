@@ -38,6 +38,8 @@ noise model and a positive under another.
 ├── CITATION.cff
 ├── ARTIFACTS.sha256
 ├── REFERENCE_RUNS.md
+├── SCIENTIFIC_HARDENING.md
+├── audit_repository.py
 ├── manifests/
 │   ├── v2.0.1/prospective_protocol.json      # frozen protocol, protocol_sha256 = 2c05a45f…
 │   └── v3.0.2/prospective_protocol.json      # frozen protocol, protocol_sha256 = c9917d51…
@@ -76,6 +78,18 @@ hashes and ranking-certificate hashes are separate artifacts. Some historical
 source-hash implementations and ranking JSON byte hashes are interpreter- or
 NumPy-version sensitive; therefore scientific reproduction should report both
 the strict byte-hash checks and the numerical gate results.
+
+Run the repository-level audit with:
+
+```bash
+python3 audit_repository.py
+```
+
+The audit computes real file-byte SHA-256 values, records Python/NumPy/SciPy
+and BLAS/LAPACK configuration, recomputes protocol-content hashes, verifies the
+public rerun verdicts, and reports comparable-pair fractions. See
+`SCIENTIFIC_HARDENING.md` for the required next-version hardening steps and
+additional falsification tests.
 
 ---
 

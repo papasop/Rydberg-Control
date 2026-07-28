@@ -223,6 +223,12 @@ Lindblad/quantum mechanics.
 
 ## 8. Reference
 
+Paper (archived, DOI):
+
+- *Same Ideal Gate, Predictably Different Noise in Rydberg Control*,
+  Zenodo, published 2026-07-27:
+  https://zenodo.org/records/21629515
+
 The v1 path-response construction (CW/CCW/ALT lifts, K_z first-order closure
 to 1.1%) is described in the accompanying paper and reproduced by
 `path1.41.py`:

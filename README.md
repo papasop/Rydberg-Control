@@ -29,39 +29,103 @@ use the fixed commit above or the Zenodo DOI in the Reference section.
 
 ## Quick reproduction
 
-Run the strict clean-clone workflow with CPython 3.12:
+### Standard Linux/macOS with a working CPython 3.12 venv
+
+Run the strict clean-clone workflow as one shell invocation:
 
 ```bash
 git clone https://github.com/papasop/fixed-unitary-noise-robust-control.git && cd fixed-unitary-noise-robust-control && git checkout d532e30c2cbf307501a84ba9951dbaba6084cf79 && python3.12 -m venv .venv && .venv/bin/python -m pip install -r requirements-lock-python312.txt && .venv/bin/python reproduce.py --protocol all --strict-environment
 ```
 
-This command performs fresh two-stage v2.0.1/v3.0.2 reproduction, then runs
-`verify_v201_strict_v1.py`, `verify_v302_strict_v1.py`,
-`audit_repository.py`, and the tamper-test suite. The overall status is
-`REPRODUCED_EXPECTED_RESULTS` only if all of those checks pass. v2.0.1 is an
-expected scientific negative (`REPRODUCED_EXPECTED_NEGATIVE`); v3.0.2 is an
-expected scientific positive (`REPRODUCED_EXPECTED_PASS`).
+### Google Colab
 
-For the current `main` checkout, run:
+Colab installations may not provide a working `ensurepip` for `python -m venv`.
+Use `virtualenv` instead:
 
 ```bash
-python -m pip install -r requirements-lock-python312.txt
-python reproduce.py --protocol all --strict-environment
+RUN_ROOT="/content/fixed-unitary-reproduction-$(date -u +%Y%m%dT%H%M%SZ)" && git clone https://github.com/papasop/fixed-unitary-noise-robust-control.git "$RUN_ROOT/repo" && cd "$RUN_ROOT/repo" && git checkout d532e30c2cbf307501a84ba9951dbaba6084cf79 && python -m pip install -q virtualenv && python -m virtualenv -q "$RUN_ROOT/venv" && "$RUN_ROOT/venv/bin/python" -m pip install -q -r requirements-lock-python312.txt && "$RUN_ROOT/venv/bin/python" reproduce.py --protocol all --strict-environment
 ```
 
-Docker is the recommended route when a local CPython 3.12 environment is not
-already available:
+### Docker
+
+Docker is recommended when a local CPython 3.12 environment is not already
+available:
 
 ```bash
 docker build -t fixed-unitary-noise-robust-control .
 docker run --rm -v "$PWD/external_runs:/app/external_runs" fixed-unitary-noise-robust-control
 ```
 
+### Windows
+
 Shell and Windows entry points are also provided; pass strict mode explicitly:
 
 ```bash
 ./reproduce.sh --strict-environment
 pwsh ./reproduce.ps1 --strict-environment
+```
+
+### Expected terminal verdicts
+
+The strict workflow performs fresh two-stage v2.0.1/v3.0.2 reproduction, then runs
+`verify_v201_strict_v1.py`, `verify_v302_strict_v1.py`,
+`audit_repository.py`, and the tamper-test suite. The overall status is
+`REPRODUCED_EXPECTED_RESULTS` only if all of those checks pass. v2.0.1 is an
+expected scientific negative (`REPRODUCED_EXPECTED_NEGATIVE`); v3.0.2 is an
+expected scientific positive (`REPRODUCED_EXPECTED_PASS`).
+
+### Where the numerical results are written
+
+The top-level terminal output is intentionally concise and reports the final
+scientific and audit classifications. It does not print every candidate or
+held-out numerical row.
+
+The line
+
+```text
+Reproduction run written to <path>
+```
+
+identifies the complete run directory. That directory contains:
+
+- `v2/evaluation/summary.json`
+- `v2/evaluation/heldout_results.csv`
+- `v2/evaluation/candidate_ranking_results.csv`
+- `v3/evaluation/summary.json`
+- `v3/evaluation/heldout_results.csv`
+- `v3/evaluation/candidate_ranking_results.csv`
+- `reproduction_summary.json`
+- strict-verifier bundles, logs, manifests, checksums, and audit results
+
+For example:
+
+```bash
+python -m json.tool external_runs/<run-id>/v3/evaluation/summary.json
+cat external_runs/<run-id>/v3/evaluation/heldout_results.csv
+python -m json.tool external_runs/<run-id>/v2/evaluation/summary.json
+cat external_runs/<run-id>/v2/evaluation/heldout_results.csv
+```
+
+### Source-identity fields
+
+`fresh_freeze_evaluate_source_bytes_match: true` means that the exact same
+source-file bytes were used during the fresh commitment and evaluation stages.
+
+A separately reported `strict_source_identity_match: false` may indicate that
+the currently shipped public script is not byte-identical to the historical
+reference source identity recorded for the original evaluation. This can
+coexist with a successful fresh-run source check, numerical reproduction, and
+strict audit. It must not be interpreted as a source change between the fresh
+commitment and evaluation stages.
+
+Historical-reference byte identity, fresh-run byte identity, protocol-content
+identity, and scientific numerical reproduction are reported separately.
+
+For the current `main` checkout, run:
+
+```bash
+python -m pip install -r requirements-lock-python312.txt
+python reproduce.py --protocol all --strict-environment
 ```
 
 No Pulser, Qiskit, PASQAL SDK, GPU, or Jupyter runtime is required.
@@ -190,7 +254,7 @@ See `REFERENCE_RUNS.md`, `STRICT_AUDIT_201_302.md`, `CORRIGENDA.md`, and
 ## 1. Repository contents
 
 ```
-├── reproduce.py / reproduce.sh / reproduce.ps1   # one-command strict external reproduction
+├── reproduce.py / reproduce.sh / reproduce.ps1   # one-shell-command strict external reproduction
 ├── environment-reference.json                 # expected reference environment record
 ├── requirements-lock-python312.txt            # locked deps for strict reproduction
 ├── Dockerfile                                 # container reproduction
@@ -275,7 +339,7 @@ reference and public-rerun hash record.
 
 ## 4. External verification record
 
-Clean-clone runs of the one-command workflow (`external_runs/`) have reported:
+Clean-clone runs of the strict workflow (`external_runs/`) have reported:
 
 - `REPRODUCED_EXPECTED_RESULTS` (overall)
 - v2.0.1: `REPRODUCED_EXPECTED_NEGATIVE`; v3.0.2:

@@ -1,0 +1,4 @@
+# External reproduction baseline for CPython 3.12 CI/Docker runs.
+# This is not the original historical manuscript environment lock.
+numpy==2.0.2
+scipy==1.13.1

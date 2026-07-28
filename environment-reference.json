@@ -1,0 +1,19 @@
+{
+  "created_utc": "2026-07-28T03:34:07Z",
+  "note": "External reproduction baseline for fresh CPython 3.12 CI/Docker runs, not the original historical manuscript environment.",
+  "python": {
+    "implementation": "CPython",
+    "version": "3.12.x"
+  },
+  "packages": {
+    "numpy": "2.0.2",
+    "scipy": "1.13.1"
+  },
+  "no_required_components": [
+    "Pulser",
+    "Qiskit",
+    "PASQAL SDK",
+    "GPU",
+    "Jupyter"
+  ]
+}

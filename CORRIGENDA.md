@@ -19,3 +19,7 @@ metadata should be read subject to the following clarifications.
 5. The frozen scripts are not modified to update this terminology because doing
    so would generate additional source-hash variants. Scientific logic changes,
    if any, should be released under a new version identifier.
+6. `pasqal_kz_v201_one_click.py` has been converted into a legacy compatibility
+   shim that delegates to `verify_v201_strict_v1.py`. Its current file-byte hash
+   is not an original v2.0.1 source identity and must not be cited as one.
+   The frozen v2.0.1 scientific script, manifest, and results remain unchanged.

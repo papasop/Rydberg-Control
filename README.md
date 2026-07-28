@@ -21,6 +21,59 @@ These are exact-model simulated outcomes. They are not PASQAL production
 compilation, cloud execution, physical-QPU measurements, a universal path cost,
 or evidence beyond standard quantum mechanics.
 
+## One-command external reproduction
+
+For a fresh clone, install the direct dependencies and run the wrapper:
+
+```bash
+python -m pip install -r requirements-lock-python312.txt
+python reproduce.py --preflight
+python reproduce.py
+```
+
+Shell and Windows entry points are also provided:
+
+```bash
+./reproduce.sh
+pwsh ./reproduce.ps1
+```
+
+The default command is equivalent to `python reproduce.py --protocol all`.
+Protocol-specific runs are available with `--protocol v2` or `--protocol v3`.
+Each run writes a unique, never-overwritten directory under
+`external_runs/YYYYMMDDTHHMMSSZ_<short-id>/` containing environment metadata,
+two-stage commitment/evaluation outputs, wrapper verdicts, a full log,
+`reproduction_summary.json`, and real file-byte checksums.
+
+Use CPython 3.12 for strict external reproduction:
+
+```bash
+python reproduce.py --protocol all --strict-environment
+```
+
+Non-3.12 runs are allowed by default but warn that strict source/ranking byte
+identity is not guaranteed. The wrapper reports strict byte identity separately
+from numerical reproduction and scientific status.
+
+The wrapper deliberately does **not** call the historical `--one-click` paths.
+For each protocol it runs a commitment subprocess, reads the actual
+`prospective_protocol.json`, then runs held-out evaluation with that manifest
+and independently classifies the result. The v2.0.1 outcome is an expected
+predeclared negative:
+`REPRODUCED_EXPECTED_NEGATIVE`, not a reproduction error. The v3.0.2 outcome is
+`REPRODUCED_EXPECTED_PASS`.
+
+Docker reproduction:
+
+```bash
+docker build -t fixed-unitary-noise-robust-control .
+docker run --rm -v "$PWD/external_runs:/app/external_runs" fixed-unitary-noise-robust-control
+```
+
+No Pulser, Qiskit, PASQAL SDK, GPU, or Jupyter runtime is required. See
+`KNOWN_LIMITATIONS.md` for the remaining historical limitations and why the new
+wrapper documents rather than rewrites them.
+
 The v2.0.1 failure is reported as part of the frozen evaluation trail:
 the same predictor architecture yields a real, falsifiable negative under one
 noise model and a positive under another.
@@ -156,7 +209,8 @@ existing output directory).
 > The shipped v3.0.2 script differs from the evaluated one **only in the
 > module docstring** (a stale stage-2 filename and noise-model sentence were
 > corrected). The frozen `PROTOCOL` — hence the protocol hash — is
-> untouched, and the one-click verifier accepts both source hashes.
+> untouched. The source hashes above are historical/reference identities,
+> separate from protocol-content and numerical-verdict reproduction.
 > The ranking-hash value is NumPy-version sensitive at the ~1e-6 relative
 > level: under other NumPy versions the JSON bytes (hence the hash) differ
 > slightly, while all rank statistics reproduce exactly (verified on
@@ -196,12 +250,22 @@ minimum → `all_gates_pass: false`,
 A standalone verifier/packager mirroring the v3 one also exists:
 
 ```bash
-python pasqal_kz_v201_one_click.py
+python verify_v201_strict_v1.py
 ```
 
-It verifies the commitment against the known v2.0.1 source hashes, runs the
-held-out evaluation if needed, checks artifacts, and writes the result ZIP
-plus certificate.
+It performs a fresh two-stage external reproduction in a unique
+`external_runs/v201/YYYYMMDDTHHMMSSZ_<short-id>/` directory, verifies real
+file-byte source identity within that fresh run, recomputes the ranking
+certificate byte hash, classifies the expected negative result, stages a
+self-contained bundle, and writes a ZIP plus certificate. The verifier is
+self-identifying by its own file-byte SHA-256; this is not third-party
+timestamping or certification.
+
+The older `pasqal_kz_v201_one_click.py` entry point is now only a legacy
+compatibility shim that delegates to `verify_v201_strict_v1.py`. Historical
+source hashes are documented in `REFERENCE_RUNS.md` and
+`historical_source_identities.json`; they are not used as a whitelist for
+current PASS decisions.
 
 | Artifact | Expected SHA-256 |
 |---|---|
@@ -214,7 +278,8 @@ plus certificate.
 > hash *definition* was repaired once on 2026-07-27 (notebook-global →
 > stable inventory; see section 6). The shipped script carries the frozen
 > protocol byte-identical; its stable-inventory hash under Python 3.12 is
-> `8442f028…`. The one-click verifier accepts all known hashes. As with
+> `8442f028…`. These values are retained as historical records only; the
+> strict verifier does not accept a source-hash whitelist for PASS. As with
 > v3, the ranking hash is NumPy-version sensitive at the ~1e-6 relative
 > level while all rank statistics reproduce exactly (verified on
 > NumPy 2.2.5: Spearman = 1.0 at every γ, both improvement gates failing as

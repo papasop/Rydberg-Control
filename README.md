@@ -66,6 +66,20 @@ pwsh ./reproduce.ps1 --strict-environment
 
 No Pulser, Qiskit, PASQAL SDK, GPU, or Jupyter runtime is required.
 
+## PASQAL relevance and remaining validation layer
+
+The present package is a model-level selector, not a Pulser or PASQAL
+execution package. The open test is whether the selected ordering survives:
+
+1. conversion to Pulser-native waveforms;
+2. production timing and amplitude discretisation;
+3. bandwidth, slew-rate, and smoothing constraints;
+4. EMU/cloud evaluation under a declared task observable;
+5. eventual QPU measurement.
+
+A PASQAL-layer PASS would require endpoint equivalence, ranking preservation,
+and task-loss improvement to survive compilation separately.
+
 ## Conceptual provenance: a path-dependent realization layer
 
 This repository was motivated by a broader structural idea developed in the
@@ -158,8 +172,8 @@ The legacy `pasqal_kqs_v302_one_click.py` and `pasqal_kz_v201_one_click.py`
 entry points are compatibility shims that delegate to the strict verifiers.
 
 The v2.0.1 failure is reported as part of the frozen evaluation trail:
-the same predictor architecture yields a real, falsifiable negative under one
-noise model and a positive under another.
+the same prospective validation architecture yields an expected negative under
+one declared noise model and a positive under another.
 
 See `REFERENCE_RUNS.md`, `STRICT_AUDIT_201_302.md`, `CORRIGENDA.md`, and
 `KNOWN_LIMITATIONS.md` for historical hashes, limitations, and repair details.
@@ -420,10 +434,12 @@ Result ZIP certificates:
 
 1. **Commit**: serialize the protocol, hash it, timestamp it, write the
    manifest. No Hamiltonian, K(z), candidate, or noisy outcome is computed.
-2. **Candidate generation**: deterministic right-null singular vectors of
-   the endpoint Jacobian at the reference control `z₀`, ± directions ×
-   fixed tangent amplitudes; each candidate is nonlinearly corrected back
-   onto the full-unitary endpoint fibre (infidelity ≤ 1e-11).
+2. **Candidate generation**: the right-null singular-vector basis returned by
+   the frozen numerical environment at the reference control `z₀`, with fixed
+   sign and amplitude rules; each candidate is nonlinearly corrected back
+   onto the full-unitary endpoint fibre (infidelity ≤ 1e-11). The local null
+   subspace is geometrically meaningful, whereas the particular basis used to
+   generate the finite candidate family is environment dependent.
 3. **Frozen prediction**
    - v2 ranks endpoint-valid candidates by the zero-noise Markovian task
      derivative `j1(z)`;
@@ -432,9 +448,9 @@ Result ZIP certificates:
 
    The complete candidate ranking and controls are written to disk before any
    held-out finite-noise loss is evaluated.
-4. **Held-out evaluation**: exact quasi-static averaging (Gauss–Hermite
-   order 15; v3) or exact Lindblad channels (v2) at held-out noise strengths
-   never used by the selector.
+4. **Held-out evaluation**: numerical quasi-static Gaussian averaging using
+   the frozen 15-point Gauss–Hermite rule (v3), or exact Lindblad channels
+   (v2), at held-out noise strengths never used by the selector.
 5. **Gates**: rank correlation, pairwise concordance, top-k recovery,
    beats-reference, minimum improvement, prediction sign and first-order
    error — all predeclared in the frozen manifest.
@@ -447,6 +463,11 @@ six-segment model**. The held-out losses are simulated outcomes, not
 measurements. This is **not** PASQAL production compilation, hardware/cloud
 evidence, a universal path-cost principle, or physics beyond standard
 Lindblad/quantum mechanics.
+
+The declared Hamiltonian uses permutation-symmetric global control and has an
+effective symmetric-three-dimensional plus antisymmetric-one-dimensional block
+structure. The input task remains in the symmetric sector; no claim is made
+for generic independently addressed two-qubit control.
 
 ## 10. Reference
 

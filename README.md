@@ -95,9 +95,12 @@ by the endpoint alone. The immediate source records are:
 
 In that framework, a path-dependent cost is written schematically as
 
-\[
-E[\gamma]=\int_\gamma F(\gamma,\dot{\gamma})\,d\lambda .
-\]
+$$
+E[\gamma]
+=
+\int_{\gamma}
+F\!\left(\gamma(\lambda),\dot{\gamma}(\lambda)\right)\,d\lambda .
+$$
 
 The present quantum-control study does not assume or test that framework.
 It investigates a finite-dimensional operational analogue. Controls can have
@@ -120,10 +123,11 @@ predeclared probes `xi = {-h,0,+h}`. It is used to freeze the candidate
 ranking before any held-out finite-`sigma` Gaussian-averaged loss is
 evaluated. For sufficiently weak noise,
 
-\[
-\overline J(z,\sigma)
-=J(z,0)+q_2(z)\sigma^2+O(\sigma^4).
-\]
+$$
+\overline{J}(z,\sigma)
+=
+J(z,0)+q_2(z)\sigma^2+O(\sigma^4).
+$$
 
 Because the endpoint-equivalent candidates share the same `J(z,0)` within
 the declared numerical tolerance, `q2(z)` determines their leading

@@ -1,25 +1,56 @@
-# K(z)-Guided Prospective Task-Loss Ranking — Reproduction Package
+# Prospective Noise-Robust Control within a Fixed-Unitary Fibre
+### Reproduction Package
 
-This repository contains two programmatically frozen prospective protocols for
-testing whether a task-relative local susceptibility can rank held-out
-finite-noise task losses among controls that are numerically equivalent at the
-complete ideal-unitary endpoint.
+Can a locally computed, task-relative susceptibility select a more
+noise-robust control before any noisy simulation is run, among controls that
+are numerically identical at the complete ideal-unitary endpoint? This
+repository contains two programmatically frozen prospective protocols that
+answer this question in a frozen exact two-atom Rydberg model:
+
+- **v3.0.2 (quasi-static detuning) — PASS**: the frozen `q2` ranking selects
+  `v01_m_0.150`, with 20.6% lower leading susceptibility and 20.3%–20.6%
+  lower held-out simulated loss across σ = 0.03–0.24 rad/µs (prediction error
+  ≤ 0.96%, Spearman ≥ 0.99986, actual rank 1/80).
+- **v2.0.1 (Markovian dephasing) — expected negative**: ranking succeeds
+  (Spearman = 1.0), but the ≈0.48% improvement fails the predeclared
+  practical-improvement gates.
 
 The protocols were frozen inside the computational workflow. They were not
-externally timestamped or certified by a third party.
+externally timestamped or certified by a third party. These are exact-model
+simulated outcomes, not PASQAL production compilation, cloud execution,
+physical-QPU measurements, a universal path cost, or evidence beyond standard
+quantum mechanics.
+
+## Motivation: path-accumulated cost in quantum control
+
+This package is a finite-dimensional, executable instance of a broader
+structural idea studied in the author's accompanying work on information time
+as a cost layer of physical change (Principle R and the K=1 framework): a
+physical process is not fully described by its endpoint or by any compressed
+summary of it; the accumulated cost along the path can carry independent,
+physically load-bearing information.
+
+Here that idea takes a concrete, testable form. Controls sharing the same
+complete ideal-unitary endpoint (a ten-dimensional fibre of the 18-dimensional
+control space) differ in how much noise cost they accumulate along the
+trajectory. A local, task-projected readout of that accumulation (`q2`, `j1`)
+can rank finite-noise task losses before any noisy simulation is run, and a
+predeclared negative protocol (v2.0.1) shows that rankability and practical
+utility must be gated separately.
+
+The two research lines are structurally related but logically independent:
+nothing in this package assumes the K=1 framework, and the present results are
+not evidence for it. Both share the same protocol discipline: predeclared
+gates, programmatic freezing, and explicitly recorded negative outcomes.
 
 | Protocol | Noise model | Frozen predictor | Verdict |
 |---|---|---|---|
-| v2.0.1 (`2c05a45f…`) | Weak local Markovian dephasing | First-order task slope `j1(z)` at `gamma = 0` | **FAIL** — ranking succeeded, but the predicted 0.484% and held-out simulated 0.482% improvements failed the predeclared effect-size gates |
+| v2.0.1 (`2c05a45f…`) | Weak local Markovian dephasing | First-order task slope `j1(z)` at `gamma = 0` | **Expected negative** — ranking succeeded (Spearman 1.0), but the predicted 0.484% and held-out 0.482% improvements failed the predeclared effect-size gates |
 | v3.0.2 (`c9917d51…`) | Zero-mean common quasi-static detuning | Local variance susceptibility `q2(z) = 0.5 d²J/dxi²` evaluated from the predeclared probes `xi = {-h,0,+h}` | **PASS** — predicted improvement 20.557%; held-out simulated improvement 20.319–20.554% |
 
 For v3, the selector uses the local probes `xi = {-h,0,+h}` but does not use
 any held-out finite-`sigma` Gaussian-averaged loss. The full ranking is written
 to a certificate before those held-out losses are evaluated.
-
-These are exact-model simulated outcomes. They are not PASQAL production
-compilation, cloud execution, physical-QPU measurements, a universal path cost,
-or evidence beyond standard quantum mechanics.
 
 ## One-command external reproduction
 
@@ -64,12 +95,18 @@ For each protocol it runs a commitment subprocess, reads the actual
 and independently classifies the result. The internal ordering barrier is a
 programmatic workflow barrier, not external preregistration.
 
+The legacy `pasqal_kqs_v302_one_click.py` and `pasqal_kz_v201_one_click.py`
+entry points are compatibility shims that delegate to the strict verifiers.
+
 Docker reproduction:
 
 ```bash
 docker build -t fixed-unitary-noise-robust-control .
 docker run --rm -v "$PWD/external_runs:/app/external_runs" fixed-unitary-noise-robust-control
 ```
+
+Docker is the recommended route when a local CPython 3.12 environment is not
+already available.
 
 No Pulser, Qiskit, PASQAL SDK, GPU, or Jupyter runtime is required. See
 `KNOWN_LIMITATIONS.md` for the remaining historical limitations and why the new
@@ -84,26 +121,25 @@ noise model and a positive under another.
 ## 1. Repository contents
 
 ```
-├── pasqal_kz_quasistatic_ranking_v3_0_2.py   # v3.0.2 main script (quasi-static detuning)
-├── verify_v302_strict_v1.py                  # v3.0.2 strict external verifier/packager
-├── pasqal_kqs_v302_one_click.py              # v3.0.2 legacy compatibility shim
+├── reproduce.py / reproduce.sh / reproduce.ps1   # one-command strict external reproduction
+├── environment-reference.json                 # expected reference environment record
+├── requirements-lock-python312.txt            # locked deps for strict reproduction
+├── Dockerfile                                 # container reproduction
+├── pasqal_kz_quasistatic_ranking_v3_0_2.py    # v3.0.2 main script
+├── verify_v302_strict_v1.py                   # v3.0.2 strict verifier
 ├── pasqal_kz_task_ranking_prospective_v2_0_1.py  # v2.0.1 main script (Markovian dephasing)
-├── verify_v201_strict_v1.py                  # v2.0.1 strict external verifier/packager
-├── pasqal_kz_v201_one_click.py               # v2.0.1 legacy compatibility shim
-├── CORRIGENDA.md
-├── CITATION.cff
-├── ARTIFACTS.sha256
-├── REFERENCE_RUNS.md
-├── SCIENTIFIC_HARDENING.md
-├── STRICT_AUDIT_201_302.md
-├── audit_repository.py
-├── manifests/
-│   ├── v2.0.1/prospective_protocol.json      # frozen protocol, protocol_sha256 = 2c05a45f…
-│   └── v3.0.2/prospective_protocol.json      # frozen protocol, protocol_sha256 = c9917d51…
-├── results/
-│   ├── v2.0.1/summary.json                   # independent CPython 3.9.6 rerun (FAIL)
-│   └── v3.0.2/summary.json                   # independent CPython 3.9.6 rerun (PASS)
-├── requirements.txt
+├── verify_v201_strict_v1.py                   # v2.0.1 strict verifier
+├── pasqal_kqs_v302_one_click.py               # legacy shim -> strict verifier
+├── pasqal_kz_v201_one_click.py                # legacy shim -> strict verifier
+├── audit_repository.py                        # repository-level audit
+├── manifests/                                 # frozen protocols (2c05a45f…, c9917d51…)
+├── results/                                   # independent CPython 3.9.6 reruns
+├── external_runs/                             # never-overwritten reproduction records
+├── REFERENCE_RUNS.md                          # reference vs public-rerun hash record
+├── ARTIFACTS.sha256                           # repository file-byte checksums
+├── STRICT_AUDIT_201_302.md                    # strict audit specification
+├── SCIENTIFIC_HARDENING.md                    # next-version hardening steps
+├── CORRIGENDA.md / KNOWN_LIMITATIONS.md / CITATION.cff
 └── README.md
 ```
 
@@ -168,7 +204,25 @@ reference and public-rerun hash record.
 
 ---
 
-## 4. Reproduce v3.0.2 (quasi-static detuning — PASS)
+## 4. External verification record
+
+Independent clean-clone runs of the one-command workflow (`external_runs/`)
+have reported:
+
+- `REPRODUCED_EXPECTED_RESULTS` (overall)
+- v2.0.1: `REPRODUCED_EXPECTED_NEGATIVE`; v3.0.2:
+  `REPRODUCED_EXPECTED_PASS`
+- `STRICT_AUDIT_PASS` for both strict verifiers and the repository audit
+- `TAMPER_TESTS_PASS` for the adversarial tamper suite
+
+"Strict verifier" denotes an independent code path within this repository,
+not an independent research team. These mechanisms establish reproducibility,
+internal consistency, and tamper sensitivity; they do not provide an external
+timestamp or third-party preregistration.
+
+---
+
+## 5. Reproduce v3.0.2 (quasi-static detuning — PASS)
 
 Two-stage (recommended — mirrors the original programmatically frozen workflow):
 
@@ -242,7 +296,7 @@ source hashes are records, not a whitelist for current PASS decisions.
 
 ---
 
-## 5. Reproduce v2.0.1 (Markovian dephasing — predeclared FAIL)
+## 6. Reproduce v2.0.1 (Markovian dephasing — expected negative)
 
 ```bash
 python pasqal_kz_task_ranking_prospective_v2_0_1.py
@@ -284,7 +338,7 @@ current PASS decisions.
 
 > The v2.0.1 source hash exists in several legitimate flavors because the
 > hash *definition* was repaired once on 2026-07-27 (notebook-global →
-> stable inventory; see section 6). The shipped script carries the frozen
+> stable inventory; see section 7). The shipped script carries the frozen
 > protocol byte-identical; its stable-inventory hash under Python 3.12 is
 > `8442f028…`. These values are retained as historical records only; the
 > strict verifier does not accept a source-hash whitelist for PASS. As with
@@ -295,7 +349,7 @@ current PASS decisions.
 
 ---
 
-## 6. Commitment history (full disclosure)
+## 7. Commitment history (full disclosure)
 
 All protocol/source hashes ever issued, in order. No evaluation was run
 under any superseded commitment; superseded entries were replaced *before*
@@ -315,7 +369,7 @@ Result ZIP certificates:
 
 ---
 
-## 7. What the scripts do (pipeline)
+## 8. What the scripts do (pipeline)
 
 1. **Commit**: serialize the protocol, hash it, timestamp it, write the
    manifest. No Hamiltonian, K(z), candidate, or noisy outcome is computed.
@@ -338,7 +392,7 @@ Result ZIP certificates:
    beats-reference, minimum improvement, prediction sign and first-order
    error — all predeclared in the frozen manifest.
 
-## 8. Scope and claim boundary
+## 9. Scope and claim boundary
 
 A PASS supports the prospective claim that a task-relative locally evaluated
 score ranks finite-noise state-transfer losses **in this frozen exact two-atom,
@@ -347,7 +401,7 @@ measurements. This is **not** PASQAL production compilation, hardware/cloud
 evidence, a universal path-cost principle, or physics beyond standard
 Lindblad/quantum mechanics.
 
-## 9. Reference
+## 10. Reference
 
 ### Archived computational record
 
@@ -357,10 +411,18 @@ The current computational record is archived under the title:
   Zenodo, 2026-07-28:
   https://doi.org/10.5281/zenodo.21638025
 
+The Zenodo record is archived under the earlier preposition variant ("on");
+the repository title uses the current manuscript wording ("within").
+
 This DOI identifies the archived computational record for the current
 fixed-unitary fibre reproduction package. It should still be read with the
 scope boundary above: exact local simulation, not PASQAL production
 compilation, cloud execution, or hardware evidence.
+
+The companion manuscript reports the original CPython 3.12 reference
+evaluation; this repository hosts the protocols, hashes, independent reruns,
+and verification machinery. See `REFERENCE_RUNS.md` for the exact
+relationship.
 
 The v1 path-response construction (CW/CCW/ALT lifts, K_z first-order closure
 to 1.1%) is described in the accompanying paper and reproduced by

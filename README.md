@@ -51,8 +51,7 @@ noise model and a positive under another.
 > `source_hash`, re-committed, and evaluated in one cell) is **not** shipped:
 > it documents the one-time 2026-07-27 hash-repair recorded in the commitment
 > history, and its stable-hash logic now lives in the v2.0.1 main script
-> itself. Publishing it would invite confusion about the pre-registration
-> trail.
+> itself. Publishing it would invite confusion about the frozen workflow trail.
 
 Each main script is self-contained and implements the full two-stage
 workflow: **commit** (freeze protocol, compute nothing) → **evaluate**
@@ -81,9 +80,21 @@ the strict byte-hash checks and the numerical gate results.
 
 ---
 
-## 3. Reproduce v3.0.2 (quasi-static detuning — PASS)
+## 3. Data provenance
 
-Two-stage (recommended — mirrors the original pre-registration):
+The archived paper reports the original Python 3.12 evaluation data and its
+reference hashes. This repository also includes independently regenerated
+artifacts under `manifests/` and `results/`, produced on CPython 3.9.6 with
+NumPy 2.0.2 from the committed scripts. Those repository artifacts reproduce
+the protocol-content hashes and numerical gate verdicts, but some source and
+ranking-certificate byte hashes differ from the original Python 3.12 run for
+the version-sensitivity reasons documented above and in `ARTIFACTS.sha256`.
+
+---
+
+## 4. Reproduce v3.0.2 (quasi-static detuning — PASS)
+
+Two-stage (recommended — mirrors the original programmatically frozen workflow):
 
 ```bash
 # Stage 1 — freeze the protocol (computes NO physics)
@@ -145,7 +156,7 @@ existing output directory).
 
 ---
 
-## 4. Reproduce v2.0.1 (Markovian dephasing — registered FAIL)
+## 5. Reproduce v2.0.1 (Markovian dephasing — predeclared FAIL)
 
 ```bash
 python pasqal_kz_task_ranking_prospective_v2_0_1.py
@@ -177,7 +188,7 @@ plus certificate.
 
 > The v2.0.1 source hash exists in several legitimate flavors because the
 > hash *definition* was repaired once on 2026-07-27 (notebook-global →
-> stable inventory; see section 5). The shipped script carries the frozen
+> stable inventory; see section 6). The shipped script carries the frozen
 > protocol byte-identical; its stable-inventory hash under Python 3.12 is
 > `8442f028…`. The one-click verifier accepts all known hashes. As with
 > v3, the ranking hash is NumPy-version sensitive at the ~1e-6 relative
@@ -187,7 +198,7 @@ plus certificate.
 
 ---
 
-## 5. Commitment history (full disclosure)
+## 6. Commitment history (full disclosure)
 
 All protocol/source hashes ever issued, in order. No evaluation was run
 under any superseded commitment; superseded entries were replaced *before*
@@ -207,7 +218,7 @@ Result ZIP certificates:
 
 ---
 
-## 6. What the scripts do (pipeline)
+## 7. What the scripts do (pipeline)
 
 1. **Commit**: serialize the protocol, hash it, timestamp it, write the
    manifest. No Hamiltonian, K(z), candidate, or noisy outcome is computed.
@@ -230,16 +241,16 @@ Result ZIP certificates:
    beats-reference, minimum improvement, prediction sign and first-order
    error — all predeclared in the frozen manifest.
 
-## 7. Scope and claim boundary
+## 8. Scope and claim boundary
 
-A PASS supports the prospective claim that an ideal-path-derived score ranks
-finite-noise state-transfer losses **in this frozen exact two-atom,
+A PASS supports the prospective claim that a task-relative locally evaluated
+score ranks finite-noise state-transfer losses **in this frozen exact two-atom,
 six-segment model**. The held-out losses are simulated outcomes, not
 measurements. This is **not** PASQAL production compilation, hardware/cloud
 evidence, a universal path-cost principle, or physics beyond standard
 Lindblad/quantum mechanics.
 
-## 8. Reference
+## 9. Reference
 
 Paper (archived, DOI):
 

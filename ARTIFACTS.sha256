@@ -5,7 +5,7 @@
 # gate verdicts. Ranking JSON byte hashes are environment-sensitive and may
 # differ from the Python 3.12 / NumPy 2.0.2 reference hashes documented in
 # README.md.
-daaaab5ff6ae6ef21e9c041905aa60d2855848de15c76f4ae1c65138c032ce81  README.md
+2ed5263b51cb9901ee7a4d40458837d50187d21adc6415a77272793e7ee8a45d  README.md
 6a6ecbcb86621b4ec2cb64ec8b2642f253d0ad4685d67e95f7bced6b62d64580  CORRIGENDA.md
 396bbf41fe42ad78e0971c6bf4cab648f81ded00a4036af361994afe8c28d32a  CITATION.cff
 f04f7dd63616391e19da212366d375fa3385a8b5dd32b38ca30ddb5260541c36  requirements.txt

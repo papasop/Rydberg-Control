@@ -345,7 +345,7 @@ Lindblad/quantum mechanics.
 
 An earlier computational record was archived under the title:
 
-- *Same Ideal Gate, Predictably Different Noise in Rydberg Control*,
+- *Prospective Noise-Robust Control on a Fixed-Unitary Fibre*,
   Zenodo, 2026-07-27:
   https://zenodo.org/records/21629515
 

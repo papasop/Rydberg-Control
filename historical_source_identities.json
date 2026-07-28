@@ -30,5 +30,21 @@
     "role": "historical record only",
     "evaluated": true,
     "protocol_version": "v2.0.1"
+  },
+  {
+    "hash": "ae7dcfd733568901aa526ad2c2ad4e89a4da1f3378edcfe5b03035de8d026843",
+    "algorithm": "historical v3 source-logic inventory",
+    "version": "v3.0.2 evaluated reference",
+    "role": "historical record only",
+    "evaluated": true,
+    "protocol_version": "v3.0.2"
+  },
+  {
+    "hash": "7ed2c8fe92355629bedd7b8ce057712c94845fe27821e8aa0871a774ca667874",
+    "algorithm": "stable code-object inventory under CPython 3.12",
+    "version": "v3.0.2 shipped docstring-cleanup record",
+    "role": "historical record only",
+    "evaluated": false,
+    "protocol_version": "v3.0.2"
   }
 ]

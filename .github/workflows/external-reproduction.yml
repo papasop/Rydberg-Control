@@ -21,6 +21,14 @@ jobs:
         run: python -m unittest discover -s tests
       - name: Strict preflight
         run: python reproduce.py --preflight --strict-environment
+      - name: Strict verifier historical audits
+        run: |
+          python verify_v201_strict_v1.py --historical-audit
+          python verify_v302_strict_v1.py --historical-audit
+      - name: Strict verifier cached-artifact validation
+        run: |
+          python verify_v201_strict_v1.py --reuse-existing results/v2.0.1 --manifest manifests/v2.0.1/prospective_protocol.json
+          python verify_v302_strict_v1.py --reuse-existing results/v3.0.2 --manifest manifests/v3.0.2/prospective_protocol.json
 
   full-reproduction:
     if: github.event_name == 'workflow_dispatch'
@@ -37,6 +45,10 @@ jobs:
         run: python -m pip install -r requirements-lock-python312.txt
       - name: Full external reproduction
         run: python reproduce.py --protocol all --strict-environment
+      - name: Full v2 strict verifier
+        run: python verify_v201_strict_v1.py --strict-environment
+      - name: Full v3 strict verifier
+        run: python verify_v302_strict_v1.py --strict-environment --timeout-seconds 3600
       - name: Upload external reproduction run
         uses: actions/upload-artifact@v4
         with:

@@ -23,45 +23,46 @@ or evidence beyond standard quantum mechanics.
 
 ## One-command external reproduction
 
-For a fresh clone, install the direct dependencies and run the wrapper:
+For a fresh clone, install the locked direct dependencies and run the strict
+wrapper:
 
 ```bash
 python -m pip install -r requirements-lock-python312.txt
-python reproduce.py --preflight
-python reproduce.py
+python reproduce.py --protocol all --strict-environment
 ```
 
-Shell and Windows entry points are also provided:
+This command verifies the checked-out Git commit reported in
+`environment.json` and printed by `--preflight`. It performs fresh two-stage
+v2.0.1/v3.0.2 reproduction, then runs `verify_v201_strict_v1.py`,
+`verify_v302_strict_v1.py`, `audit_repository.py`, and the tamper-test suite.
+The overall status is `REPRODUCED_EXPECTED_RESULTS` only if all of those checks
+pass. v2.0.1 is an expected scientific negative
+(`REPRODUCED_EXPECTED_NEGATIVE`); v3.0.2 is an expected scientific positive
+(`REPRODUCED_EXPECTED_PASS`).
+
+Shell and Windows entry points are also provided; pass strict mode explicitly:
 
 ```bash
-./reproduce.sh
-pwsh ./reproduce.ps1
+./reproduce.sh --strict-environment
+pwsh ./reproduce.ps1 --strict-environment
 ```
 
-The default command is equivalent to `python reproduce.py --protocol all`.
-Protocol-specific runs are available with `--protocol v2` or `--protocol v3`.
-Each run writes a unique, never-overwritten directory under
+Protocol-specific diagnostic runs are available with `--protocol v2` or
+`--protocol v3`. Each run writes a unique, never-overwritten directory under
 `external_runs/YYYYMMDDTHHMMSSZ_<short-id>/` containing environment metadata,
 two-stage commitment/evaluation outputs, wrapper verdicts, a full log,
 `reproduction_summary.json`, and real file-byte checksums.
 
-Use CPython 3.12 for strict external reproduction:
-
-```bash
-python reproduce.py --protocol all --strict-environment
-```
-
-Non-3.12 runs are allowed by default but warn that strict source/ranking byte
-identity is not guaranteed. The wrapper reports strict byte identity separately
-from numerical reproduction and scientific status.
+Use CPython 3.12 for strict external reproduction. Non-3.12 runs are allowed
+only for local diagnostics and warn that strict source/ranking byte identity is
+not guaranteed. The wrapper reports strict byte identity separately from
+numerical reproduction and scientific status.
 
 The wrapper deliberately does **not** call the historical `--one-click` paths.
 For each protocol it runs a commitment subprocess, reads the actual
 `prospective_protocol.json`, then runs held-out evaluation with that manifest
-and independently classifies the result. The v2.0.1 outcome is an expected
-predeclared negative:
-`REPRODUCED_EXPECTED_NEGATIVE`, not a reproduction error. The v3.0.2 outcome is
-`REPRODUCED_EXPECTED_PASS`.
+and independently classifies the result. The internal ordering barrier is a
+programmatic workflow barrier, not external preregistration.
 
 Docker reproduction:
 
@@ -84,14 +85,17 @@ noise model and a positive under another.
 
 ```
 ├── pasqal_kz_quasistatic_ranking_v3_0_2.py   # v3.0.2 main script (quasi-static detuning)
-├── pasqal_kqs_v302_one_click.py              # v3.0.2 standalone verifier/packager
+├── verify_v302_strict_v1.py                  # v3.0.2 strict external verifier/packager
+├── pasqal_kqs_v302_one_click.py              # v3.0.2 legacy compatibility shim
 ├── pasqal_kz_task_ranking_prospective_v2_0_1.py  # v2.0.1 main script (Markovian dephasing)
-├── pasqal_kz_v201_one_click.py               # v2.0.1 standalone verifier/packager
+├── verify_v201_strict_v1.py                  # v2.0.1 strict external verifier/packager
+├── pasqal_kz_v201_one_click.py               # v2.0.1 legacy compatibility shim
 ├── CORRIGENDA.md
 ├── CITATION.cff
 ├── ARTIFACTS.sha256
 ├── REFERENCE_RUNS.md
 ├── SCIENTIFIC_HARDENING.md
+├── STRICT_AUDIT_201_302.md
 ├── audit_repository.py
 ├── manifests/
 │   ├── v2.0.1/prospective_protocol.json      # frozen protocol, protocol_sha256 = 2c05a45f…
@@ -182,7 +186,7 @@ python pasqal_kz_quasistatic_ranking_v3_0_2.py \
 Or in one invocation:
 
 ```bash
-python pasqal_kz_quasistatic_ranking_v3_0_2.py --one-click
+python verify_v302_strict_v1.py
 ```
 
 Run in a **clean, empty directory** (the evaluator refuses to overwrite an
@@ -232,6 +236,10 @@ effect size, but is not byte-identical to the reference output.
 - Spearman ρ ≥ 0.99986, pairwise concordance ≥ 0.9984 (3160 pairs),
   top-16 overlap = 1.0; selected candidate actual rank **1/80** at every σ
 
+The older `pasqal_kqs_v302_one_click.py` entry point is now only a legacy
+compatibility shim that delegates to `verify_v302_strict_v1.py`. Historical
+source hashes are records, not a whitelist for current PASS decisions.
+
 ---
 
 ## 5. Reproduce v2.0.1 (Markovian dephasing — predeclared FAIL)
@@ -247,7 +255,7 @@ Expected: perfect ranking (Spearman 1.0, 1770 pairs), prediction error
 minimum → `all_gates_pass: false`,
 `scientific_status: PROSPECTIVE_KZ_RANKING_AND_TASK_IMPROVEMENT_NOT_SUPPORTED`.
 
-A standalone verifier/packager mirroring the v3 one also exists:
+A strict standalone verifier/packager also exists:
 
 ```bash
 python verify_v201_strict_v1.py
@@ -366,8 +374,9 @@ to 1.1%) is described in the accompanying paper and reproduced by
 ### Note on the one-click packager
 
 `pasqal_kqs_v302_one_click.py` and `pasqal_kz_v201_one_click.py` are
-standalone verifier/packagers: each imports the frozen protocol machinery
-from its main script (no Colab dependency), re-checks the commitment, runs
-the held-out evaluation if needed, and writes the result ZIP plus
-certificate. Run them after stage 1 has produced the manifest directory,
-from the folder containing both `.py` files of the same version.
+legacy compatibility shims. Use `verify_v302_strict_v1.py` and
+`verify_v201_strict_v1.py` for current external verification and packaging.
+The strict verifiers run fresh two-stage reproductions in unique directories,
+record real file-byte hashes of the main script and verifier, verify summary
+and ranking-certificate consistency, classify the expected scientific outcome,
+and stage self-contained bundles.

@@ -1,4 +1,5 @@
 import math
+import shutil
 import sys
 import tempfile
 import unittest
@@ -6,7 +7,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import reproduce
+import audit_repository
 import verify_v201_strict_v1 as v201
+import verify_v302_strict_v1 as v302
 
 
 class ReproduceWrapperTests(unittest.TestCase):
@@ -86,6 +89,48 @@ class ReproduceWrapperTests(unittest.TestCase):
     def test_v201_selected_candidate_cross_check(self):
         ranking = v201.read_json(v201.REPO_ROOT / "results/v2.0.1/predicted_ranking_frozen_before_heldout.json")
         self.assertEqual(v201.selected_from_ranking(ranking), "v00_m_0.030")
+
+    def test_v302_ranking_hash_matches_summary(self):
+        summary = v302.read_json(v302.REPO_ROOT / "results/v3.0.2/summary.json")
+        ranking_path = v302.REPO_ROOT / "results/v3.0.2/predicted_ranking_frozen_before_heldout.json"
+        self.assertEqual(v302.sha256_bytes(ranking_path), summary["ranking_certificate_sha256"])
+
+    def test_v302_selected_candidate_cross_check(self):
+        ranking = v302.read_json(v302.REPO_ROOT / "results/v3.0.2/predicted_ranking_frozen_before_heldout.json")
+        self.assertEqual(v302.selected_from_ranking(ranking), "v01_m_0.150")
+
+    def test_v201_rejects_ranking_hash_tamper(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            eval_dir = Path(tmp) / "eval"
+            shutil.copytree(v201.REPO_ROOT / "results/v2.0.1", eval_dir)
+            ranking_path = eval_dir / "predicted_ranking_frozen_before_heldout.json"
+            ranking = v201.read_json(ranking_path)
+            ranking["ranking"][0]["candidate_id"] = "tampered"
+            v201.write_json(ranking_path, ranking)
+            with self.assertRaises(v201.VerificationError):
+                v201.validate_results(eval_dir, v201.REPO_ROOT / "manifests/v2.0.1/prospective_protocol.json")
+
+    def test_v302_rejects_selected_candidate_tamper(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            eval_dir = Path(tmp) / "eval"
+            shutil.copytree(v302.REPO_ROOT / "results/v3.0.2", eval_dir)
+            summary_path = eval_dir / "summary.json"
+            summary = v302.read_json(summary_path)
+            summary["candidate_audit"]["selected_candidate_id"] = "tampered"
+            ranking_path = eval_dir / "predicted_ranking_frozen_before_heldout.json"
+            summary["ranking_certificate_sha256"] = v302.sha256_bytes(ranking_path)
+            v302.write_json(summary_path, summary)
+            with self.assertRaises(v302.VerificationError):
+                v302.validate_results(eval_dir, v302.REPO_ROOT / "manifests/v3.0.2/prospective_protocol.json")
+
+    def test_repository_audit_checks_full_result_chain(self):
+        record = audit_repository.audit()
+        self.assertTrue(record["checks_ok"])
+        for protocol in record["protocols"].values():
+            self.assertTrue(protocol["ranking_certificate_hash_ok"])
+            self.assertTrue(protocol["selected_candidate_ok"])
+            self.assertTrue(protocol["csv_counts_ok"])
+            self.assertTrue(protocol["finite_numeric_values_ok"])
 
 
 if __name__ == "__main__":

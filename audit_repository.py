@@ -9,9 +9,11 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import csv
 import hashlib
 import io
 import json
+import math
 import platform
 import subprocess
 import sys
@@ -30,6 +32,9 @@ VERSIONS = {
             "657f3eae26e7362ea436850d51d909c4"
         ),
         "summary_all_gates_pass": False,
+        "expected_selected": "v00_m_0.030",
+        "expected_candidates": 60,
+        "expected_heldout": 4,
     },
     "v3.0.2": {
         "protocol_sha256": (
@@ -37,6 +42,9 @@ VERSIONS = {
             "b3e2d963d5a24e32e3945fbd253ba39e"
         ),
         "summary_all_gates_pass": True,
+        "expected_selected": "v01_m_0.150",
+        "expected_candidates": 80,
+        "expected_heldout": 4,
     },
 }
 
@@ -45,15 +53,42 @@ BYTE_HASH_FILES = [
     "CORRIGENDA.md",
     "REFERENCE_RUNS.md",
     "SCIENTIFIC_HARDENING.md",
+    "STRICT_AUDIT_201_302.md",
+    "KNOWN_LIMITATIONS.md",
+    "V201_SCIENTIFIC_SCOPE.md",
     "audit_repository.py",
     "CITATION.cff",
+    "FIXES.md",
     "LICENSE",
     "requirements.txt",
+    "requirements-lock-python312.txt",
+    "environment-reference.json",
+    "historical_source_identities.json",
     ".python-version",
+    ".gitignore",
     "pasqal_kz_quasistatic_ranking_v3_0_2.py",
     "pasqal_kqs_v302_one_click.py",
     "pasqal_kz_task_ranking_prospective_v2_0_1.py",
     "pasqal_kz_v201_one_click.py",
+    "reproduce.py",
+    "reproduce.sh",
+    "reproduce.ps1",
+    "verify_v201_strict_v1.py",
+    "verify_v302_strict_v1.py",
+    ".github/workflows/external-reproduction.yml",
+    "Dockerfile",
+    ".dockerignore",
+    "tests/test_reproduce.py",
+]
+
+REQUIRED_RESULT_FILES = [
+    "summary.json",
+    "predicted_ranking_frozen_before_heldout.json",
+    "candidate_ranking_results.csv",
+    "heldout_results.csv",
+    "candidate_predictor_audit.json",
+    "reference_control.csv",
+    "selected_control.csv",
 ]
 
 
@@ -98,15 +133,64 @@ def environment_record() -> dict[str, Any]:
     }
 
 
+def finite_numbers(value: Any) -> bool:
+    if isinstance(value, bool) or value is None or isinstance(value, str):
+        return True
+    if isinstance(value, int):
+        return True
+    if isinstance(value, float):
+        return math.isfinite(value)
+    if isinstance(value, list):
+        return all(finite_numbers(item) for item in value)
+    if isinstance(value, dict):
+        return all(finite_numbers(item) for item in value.values())
+    return True
+
+
+def read_csv_rows(path: Path) -> list[dict[str, str]]:
+    with path.open("r", encoding="utf-8", newline="") as stream:
+        return list(csv.DictReader(stream))
+
+
+def selected_from_ranking(ranking: dict[str, Any]) -> str | None:
+    if isinstance(ranking.get("selected_candidate_id"), str):
+        return ranking["selected_candidate_id"]
+    rows = ranking.get("ranking")
+    if isinstance(rows, list) and rows:
+        ranked = sorted(rows, key=lambda row: row.get("predicted_rank", 10**9))
+        return ranked[0].get("candidate_id")
+    return None
+
+
 def protocol_record(version: str) -> dict[str, Any]:
     manifest_path = ROOT / "manifests" / version / "prospective_protocol.json"
-    summary_path = ROOT / "results" / version / "summary.json"
+    result_dir = ROOT / "results" / version
+    summary_path = result_dir / "summary.json"
+    ranking_path = result_dir / "predicted_ranking_frozen_before_heldout.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    ranking = json.loads(ranking_path.read_text(encoding="utf-8"))
     protocol_hash = hashlib.sha256(
         canonical_bytes(manifest["protocol"])
     ).hexdigest()
     expected = VERSIONS[version]
+    required_files = {
+        name: {
+            "exists": (result_dir / name).is_file(),
+            "size_bytes": (result_dir / name).stat().st_size
+            if (result_dir / name).is_file() else 0,
+        }
+        for name in REQUIRED_RESULT_FILES
+    }
+    missing_or_empty = [
+        name for name, item in required_files.items()
+        if not item["exists"] or item["size_bytes"] <= 0
+    ]
+    ranking_sha = file_sha256(ranking_path)
+    selected_summary = summary.get("candidate_audit", {}).get("selected_candidate_id")
+    selected_ranking = selected_from_ranking(ranking)
+    candidate_rows = read_csv_rows(result_dir / "candidate_ranking_results.csv")
+    heldout_csv_rows = read_csv_rows(result_dir / "heldout_results.csv")
     heldout_rows = summary.get("heldout_rows", [])
     comparable = []
     for row in heldout_rows:
@@ -121,9 +205,27 @@ def protocol_record(version: str) -> dict[str, Any]:
                 comparable_pairs / total_pairs if total_pairs else None
             ),
         })
+    expected_candidate_grid_rows = (
+        expected["expected_candidates"] * expected["expected_heldout"]
+    )
+    csv_counts_ok = (
+        len(candidate_rows) == expected_candidate_grid_rows
+        and len(heldout_csv_rows) == len(heldout_rows) == expected["expected_heldout"]
+    )
+    selected_ok = (
+        selected_summary == selected_ranking == expected["expected_selected"]
+    )
+    ranking_hash_ok = (
+        ranking_sha == summary.get("ranking_certificate_sha256")
+    )
+    finite_ok = finite_numbers(summary) and finite_numbers(ranking)
+    required_files_ok = not missing_or_empty
     return {
         "manifest_path": str(manifest_path.relative_to(ROOT)),
         "summary_path": str(summary_path.relative_to(ROOT)),
+        "result_required_files": required_files,
+        "missing_or_empty_result_files": missing_or_empty,
+        "required_files_ok": required_files_ok,
         "protocol_sha256_field": manifest.get("protocol_sha256"),
         "protocol_sha256_recomputed": protocol_hash,
         "protocol_hash_expected": expected["protocol_sha256"],
@@ -141,6 +243,18 @@ def protocol_record(version: str) -> dict[str, Any]:
             is expected["summary_all_gates_pass"]
         ),
         "ranking_certificate_sha256": summary.get("ranking_certificate_sha256"),
+        "ranking_certificate_sha256_recomputed": ranking_sha,
+        "ranking_certificate_hash_ok": ranking_hash_ok,
+        "selected_candidate_summary": selected_summary,
+        "selected_candidate_ranking": selected_ranking,
+        "selected_candidate_expected": expected["expected_selected"],
+        "selected_candidate_ok": selected_ok,
+        "candidate_csv_rows": len(candidate_rows),
+        "candidate_csv_rows_expected": expected_candidate_grid_rows,
+        "heldout_csv_rows": len(heldout_csv_rows),
+        "heldout_csv_rows_expected": expected["expected_heldout"],
+        "csv_counts_ok": csv_counts_ok,
+        "finite_numeric_values_ok": finite_ok,
         "pairwise_comparable_fractions": comparable,
     }
 
@@ -156,19 +270,53 @@ def artifact_inventory() -> dict[str, str]:
     }
 
 
+def artifact_inventory_check(inventory: dict[str, str]) -> dict[str, Any]:
+    path = ROOT / "ARTIFACTS.sha256"
+    rows: dict[str, str] = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line or line.startswith("#"):
+            continue
+        digest, rel = line.split(None, 1)
+        rows[rel.strip()] = digest
+    mismatches = {
+        rel: {"recorded": rows.get(rel), "computed": digest}
+        for rel, digest in inventory.items()
+        if rows.get(rel) != digest
+    }
+    missing_from_file = sorted(set(inventory) - set(rows))
+    stale_entries = sorted(rel for rel in set(rows) - set(inventory) if (ROOT / rel).exists())
+    return {
+        "path": "ARTIFACTS.sha256",
+        "checked_files": len(inventory),
+        "mismatches": mismatches,
+        "missing_from_artifacts_file": missing_from_file,
+        "stale_existing_entries": stale_entries,
+        "ok": not mismatches and not missing_from_file and not stale_entries,
+    }
+
+
 def audit() -> dict[str, Any]:
     protocols = {
         version: protocol_record(version)
         for version in sorted(VERSIONS)
     }
+    inventory = artifact_inventory()
+    artifacts_check = artifact_inventory_check(inventory)
     checks_ok = all(
-        item["protocol_hash_ok"] and item["summary_verdict_ok"]
+        item["protocol_hash_ok"]
+        and item["summary_verdict_ok"]
+        and item["required_files_ok"]
+        and item["ranking_certificate_hash_ok"]
+        and item["selected_candidate_ok"]
+        and item["csv_counts_ok"]
+        and item["finite_numeric_values_ok"]
         for item in protocols.values()
-    )
+    ) and artifacts_check["ok"]
     return {
         "git_commit": git_commit(),
         "environment": environment_record(),
-        "file_byte_sha256": artifact_inventory(),
+        "file_byte_sha256": inventory,
+        "artifact_inventory_check": artifacts_check,
         "protocols": protocols,
         "checks_ok": checks_ok,
         "notes": [

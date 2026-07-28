@@ -9,7 +9,6 @@ import csv
 import hashlib
 import json
 import math
-import os
 import platform
 import secrets
 import subprocess
@@ -84,6 +83,11 @@ CORE_OUTPUTS = (
     "selected_control.csv",
 )
 
+STRICT_VERIFIERS = {
+    "v2": "verify_v201_strict_v1.py",
+    "v3": "verify_v302_strict_v1.py",
+}
+
 
 def canonical_json_hash(obj: Any) -> str:
     data = json.dumps(obj, sort_keys=True, separators=(",", ":")).encode("utf-8")
@@ -142,6 +146,7 @@ def blas_lapack_info() -> dict[str, Any]:
 def collect_environment() -> dict[str, Any]:
     return {
         "utc": datetime.now(timezone.utc).isoformat(),
+        "git_commit": git_commit(),
         "platform": platform.platform(),
         "os": {
             "system": platform.system(),
@@ -160,7 +165,22 @@ def collect_environment() -> dict[str, Any]:
             "scipy": import_version("scipy"),
         },
         "blas_lapack": blas_lapack_info(),
-    }
+}
+
+
+def git_commit() -> str | None:
+    try:
+        proc = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=str(REPO_ROOT),
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+    except Exception:
+        return None
+    return proc.stdout.strip() if proc.returncode == 0 else None
 
 
 def environment_warnings(env: dict[str, Any], strict: bool) -> tuple[list[str], list[str]]:
@@ -234,6 +254,11 @@ def print_preflight(report: dict[str, Any]) -> None:
     print(f"Executable: {env['python']['executable']}")
     print(f"NumPy: {env['packages']['numpy']}")
     print(f"SciPy: {env['packages']['scipy']}")
+    print(f"Git commit: {env['git_commit']}")
+    for key, cfg in PROTOCOLS.items():
+        script_sha = report["scripts"].get(key, {}).get("sha256")
+        print(f"{key} protocol SHA: {cfg.expected_protocol_hash}")
+        print(f"{key} source SHA(file bytes): {script_sha}")
     print("BLAS/LAPACK: recorded in preflight JSON/environment.json")
     print(f"requirements.txt: {'present' if report['requirements_txt']['exists'] else 'missing'}")
     print(f"Output root writable: {report['output_root_writable']} ({report['output_root']})")
@@ -288,16 +313,30 @@ def log_line(log_fh: Any, message: str) -> None:
     log_fh.flush()
 
 
-def run_subprocess(args: list[str], log_fh: Any) -> dict[str, Any]:
+def run_subprocess(args: list[str], log_fh: Any, timeout_seconds: int | None = None) -> dict[str, Any]:
     started = time.monotonic()
     log_line(log_fh, "RUN " + " ".join(args))
-    proc = subprocess.run(
-        args,
-        cwd=str(REPO_ROOT),
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
+    try:
+        proc = subprocess.run(
+            args,
+            cwd=str(REPO_ROOT),
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            shell=False,
+            timeout=timeout_seconds,
+        )
+    except subprocess.TimeoutExpired as exc:
+        elapsed = time.monotonic() - started
+        log_line(log_fh, f"TIMEOUT WALL_SECONDS {elapsed:.3f}")
+        return {
+            "args": args,
+            "returncode": 124,
+            "wall_seconds": elapsed,
+            "stdout_tail": (exc.stdout or "")[-4000:] if isinstance(exc.stdout, str) else "",
+            "stderr_tail": (exc.stderr or "")[-4000:] if isinstance(exc.stderr, str) else "",
+            "timeout_seconds": timeout_seconds,
+        }
     elapsed = time.monotonic() - started
     log_line(log_fh, f"RETURN_CODE {proc.returncode} WALL_SECONDS {elapsed:.3f}")
     if proc.stdout:
@@ -337,6 +376,21 @@ def finite_numbers(obj: Any) -> bool:
 def count_csv_rows(path: Path) -> int:
     with path.open("r", encoding="utf-8", newline="") as fh:
         return sum(1 for _ in csv.DictReader(fh))
+
+
+def read_csv_rows(path: Path) -> list[dict[str, str]]:
+    with path.open("r", encoding="utf-8", newline="") as fh:
+        return list(csv.DictReader(fh))
+
+
+def selected_from_ranking(ranking: dict[str, Any]) -> str | None:
+    if isinstance(ranking.get("selected_candidate_id"), str):
+        return ranking["selected_candidate_id"]
+    rows = ranking.get("ranking")
+    if isinstance(rows, list) and rows:
+        ranked = sorted(rows, key=lambda row: row.get("predicted_rank", 10**9))
+        return ranked[0].get("candidate_id")
+    return None
 
 
 def validate_protocol_manifest(manifest_path: Path, expected_hash: str) -> tuple[bool, list[str], dict[str, Any]]:
@@ -451,6 +505,7 @@ def validate_evaluation(cfg: ProtocolConfig, commitment_dir: Path, evaluation_di
             errors.append(f"Empty output: {cfg.key}/{rel}")
 
     summary_path = evaluation_dir / "summary.json"
+    ranking_path = evaluation_dir / "predicted_ranking_frozen_before_heldout.json"
     if not summary_path.is_file():
         return {
             "execution_status": "REPRODUCTION_ERROR",
@@ -468,12 +523,23 @@ def validate_evaluation(cfg: ProtocolConfig, commitment_dir: Path, evaluation_di
         errors.append(f"summary.json is not parseable: {exc}")
         summary = {}
 
+    ranking: dict[str, Any] = {}
+    if ranking_path.is_file():
+        try:
+            ranking = read_json(ranking_path)
+        except Exception as exc:
+            errors.append(f"ranking certificate is not parseable: {exc}")
+
     if (evaluation_dir / "candidate_ranking_results.csv").is_file():
         expected_rows = cfg.expected_candidates * cfg.expected_heldout_points
-        if count_csv_rows(evaluation_dir / "candidate_ranking_results.csv") != expected_rows:
+        actual_rows = count_csv_rows(evaluation_dir / "candidate_ranking_results.csv")
+        file_checks["candidate_csv_rows"] = {"actual": actual_rows, "expected": expected_rows}
+        if actual_rows != expected_rows:
             errors.append("Candidate CSV row count does not match expected candidate-by-heldout grid count.")
     if (evaluation_dir / "heldout_results.csv").is_file():
-        if count_csv_rows(evaluation_dir / "heldout_results.csv") != cfg.expected_heldout_points:
+        actual_heldout = count_csv_rows(evaluation_dir / "heldout_results.csv")
+        file_checks["heldout_csv_rows"] = {"actual": actual_heldout, "expected": cfg.expected_heldout_points}
+        if actual_heldout != cfg.expected_heldout_points:
             errors.append("Held-out CSV row count does not match expected grid count.")
 
     cert_path = evaluation_dir / "predicted_ranking_frozen_before_heldout.json"
@@ -482,6 +548,24 @@ def validate_evaluation(cfg: ProtocolConfig, commitment_dir: Path, evaluation_di
         file_checks["ranking_before_heldout_by_mtime"] = cert_path.stat().st_mtime <= heldout_path.stat().st_mtime
         if not file_checks["ranking_before_heldout_by_mtime"]:
             errors.append("Ranking certificate mtime is after held-out results.")
+
+    if ranking_path.is_file() and summary:
+        ranking_sha = file_sha256(ranking_path)
+        recorded_sha = summary.get("ranking_certificate_sha256")
+        file_checks["ranking_sha256_recorded_in_summary"] = recorded_sha
+        file_checks["ranking_sha256_recomputed"] = ranking_sha
+        file_checks["ranking_hash_match"] = ranking_sha == recorded_sha
+        if ranking_sha != recorded_sha:
+            errors.append("RANKING_CERTIFICATE_HASH_MISMATCH")
+        summary_selected = summary.get("candidate_audit", {}).get("selected_candidate_id")
+        ranking_selected = selected_from_ranking(ranking)
+        file_checks["selected_candidate_summary"] = summary_selected
+        file_checks["selected_candidate_ranking"] = ranking_selected
+        file_checks["selected_candidate_match"] = summary_selected == ranking_selected == cfg.expected_selected
+        if summary_selected != ranking_selected or summary_selected != cfg.expected_selected:
+            errors.append("Selected candidate mismatch across summary, ranking certificate, or expectation.")
+    if summary and ranking and (not finite_numbers(summary) or not finite_numbers(ranking)):
+        errors.append("NaN/Inf found in summary or ranking certificate.")
 
     summary_status, summary_warnings, details = classify_summary(cfg, summary)
     warnings.extend(summary_warnings)
@@ -503,13 +587,16 @@ def validate_evaluation(cfg: ProtocolConfig, commitment_dir: Path, evaluation_di
     }
 
 
-def run_protocol(cfg: ProtocolConfig, run_dir: Path, log_fh: Any) -> dict[str, Any]:
+def run_protocol(cfg: ProtocolConfig, run_dir: Path, log_fh: Any, timeout_seconds: int) -> dict[str, Any]:
     protocol_dir = run_dir / cfg.key
     commitment_dir = protocol_dir / "commitment"
     evaluation_dir = protocol_dir / "evaluation"
     protocol_dir.mkdir(parents=True)
     log_line(log_fh, f"START protocol {cfg.key} ({cfg.version})")
-    commit_result = run_subprocess(build_commit_command(cfg, commitment_dir), log_fh)
+    source_path = REPO_ROOT / cfg.script
+    source_before = file_sha256(source_path)
+    commit_result = run_subprocess(build_commit_command(cfg, commitment_dir), log_fh, timeout_seconds)
+    source_after_commit = file_sha256(source_path)
     manifest_path = commitment_dir / "prospective_protocol.json"
     protocol_hash = None
     if manifest_path.is_file():
@@ -519,14 +606,114 @@ def run_protocol(cfg: ProtocolConfig, run_dir: Path, log_fh: Any) -> dict[str, A
             protocol_hash = None
     if not protocol_hash:
         protocol_hash = cfg.expected_protocol_hash
-    evaluate_result = run_subprocess(build_evaluate_command(cfg, protocol_hash, manifest_path, evaluation_dir), log_fh)
+    evaluate_result = run_subprocess(
+        build_evaluate_command(cfg, protocol_hash, manifest_path, evaluation_dir),
+        log_fh,
+        timeout_seconds,
+    )
+    source_after_evaluate = file_sha256(source_path)
     validation = validate_evaluation(cfg, commitment_dir, evaluation_dir)
     validation["subprocess"] = {"commit": commit_result, "evaluate": evaluate_result}
+    validation["source_identity"] = {
+        "algorithm": "sha256-file-bytes-v1",
+        "source_before_commit": source_before,
+        "source_after_commit": source_after_commit,
+        "source_after_evaluate": source_after_evaluate,
+        "fresh_freeze_evaluate_source_bytes_match": (
+            source_before == source_after_commit == source_after_evaluate
+        ),
+    }
+    if not validation["source_identity"]["fresh_freeze_evaluate_source_bytes_match"]:
+        validation["execution_status"] = "REPRODUCTION_ERROR"
+        validation["numerical_reproduction"] = False
+        validation.setdefault("warnings", []).append("Fresh freeze/evaluate source bytes differ.")
+    if commit_result["returncode"] != 0 or evaluate_result["returncode"] != 0:
+        validation.setdefault("warnings", []).append(
+            f"Subprocess nonzero return code: commit={commit_result['returncode']} evaluate={evaluate_result['returncode']}"
+        )
+        if evaluate_result["returncode"] not in (0,):
+            validation["execution_status"] = "REPRODUCTION_ERROR"
+            validation["numerical_reproduction"] = False
     validation["protocol"] = cfg.version
     validation["script"] = cfg.script
     write_json(protocol_dir / "wrapper_verdict.json", validation)
     log_line(log_fh, f"END protocol {cfg.key}: {validation['execution_status']}")
     return validation
+
+
+def run_strict_verifier(
+    cfg: ProtocolConfig,
+    run_dir: Path,
+    log_fh: Any,
+    strict: bool,
+    timeout_seconds: int,
+) -> dict[str, Any]:
+    protocol_dir = run_dir / cfg.key
+    evaluation_dir = protocol_dir / "evaluation"
+    manifest_path = protocol_dir / "commitment" / "prospective_protocol.json"
+    verifier = STRICT_VERIFIERS[cfg.key]
+    args = [
+        sys.executable,
+        verifier,
+        "--reuse-existing",
+        str(evaluation_dir),
+        "--manifest",
+        str(manifest_path),
+        "--output-root",
+        str(run_dir / "strict_verifier_runs"),
+    ]
+    if strict:
+        args.append("--strict-environment")
+    result = run_subprocess(args, log_fh, timeout_seconds)
+    ok = result["returncode"] == 0
+    parsed: Any = None
+    if ok and result["stdout_tail"]:
+        start = result["stdout_tail"].find("{")
+        if start >= 0:
+            try:
+                parsed = json.loads(result["stdout_tail"][start:])
+            except Exception:
+                parsed = None
+    return {
+        "name": verifier,
+        "execution_status": "STRICT_AUDIT_PASS" if ok else "STRICT_AUDIT_ERROR",
+        "returncode": result["returncode"],
+        "subprocess": result,
+        "parsed_tail_json": parsed,
+    }
+
+
+def run_repository_audit(run_dir: Path, log_fh: Any, timeout_seconds: int) -> dict[str, Any]:
+    result = run_subprocess([sys.executable, "audit_repository.py", "--json"], log_fh, timeout_seconds)
+    ok = result["returncode"] == 0
+    parsed: Any = None
+    if result["stdout_tail"]:
+        start = result["stdout_tail"].find("{")
+        if start >= 0:
+            try:
+                parsed = json.loads(result["stdout_tail"][start:])
+            except Exception:
+                parsed = None
+    write_json(run_dir / "repository_audit.json", parsed if parsed is not None else result)
+    return {
+        "name": "audit_repository.py",
+        "execution_status": "STRICT_AUDIT_PASS" if ok else "STRICT_AUDIT_ERROR",
+        "returncode": result["returncode"],
+        "checks_ok": bool(parsed.get("checks_ok")) if isinstance(parsed, dict) else False,
+        "subprocess": result,
+    }
+
+
+def run_tamper_tests(run_dir: Path, log_fh: Any, timeout_seconds: int) -> dict[str, Any]:
+    result = run_subprocess([sys.executable, "-m", "unittest", "discover", "-s", "tests"], log_fh, timeout_seconds)
+    ok = result["returncode"] == 0
+    write_json(run_dir / "tamper_tests.json", result)
+    return {
+        "name": "python -m unittest discover -s tests",
+        "execution_status": "TAMPER_TESTS_PASS" if ok else "TAMPER_TESTS_ERROR",
+        "returncode": result["returncode"],
+        "subprocess": result,
+    }
 
 
 def write_run_checksums(run_dir: Path) -> Path:
@@ -540,8 +727,18 @@ def write_run_checksums(run_dir: Path) -> Path:
     return checksum_path
 
 
-def summarize_run(run_dir: Path, env: dict[str, Any], protocol_results: dict[str, Any]) -> dict[str, Any]:
-    if any(result["execution_status"] == "REPRODUCTION_ERROR" for result in protocol_results.values()):
+def summarize_run(
+    run_dir: Path,
+    env: dict[str, Any],
+    protocol_results: dict[str, Any],
+    strict_audits: dict[str, Any],
+) -> dict[str, Any]:
+    protocol_error = any(result["execution_status"] == "REPRODUCTION_ERROR" for result in protocol_results.values())
+    strict_error = any(
+        result.get("execution_status") in {"STRICT_AUDIT_ERROR", "TAMPER_TESTS_ERROR"}
+        for result in strict_audits.values()
+    )
+    if protocol_error or strict_error:
         overall = "REPRODUCTION_ERROR"
     else:
         overall = "REPRODUCED_EXPECTED_RESULTS"
@@ -550,6 +747,7 @@ def summarize_run(run_dir: Path, env: dict[str, Any], protocol_results: dict[str
         "created_utc": datetime.now(timezone.utc).isoformat(),
         "environment": env,
         "protocols": protocol_results,
+        "strict_audits": strict_audits,
         "overall_reproduction_status": overall,
     }
 
@@ -570,6 +768,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--protocol", choices=("v2", "v3", "all"), default="all", help="Protocol to reproduce.")
     parser.add_argument("--strict-environment", action="store_true", help="Fail unless running under CPython 3.12.")
     parser.add_argument("--output-root", default=DEFAULT_OUTPUT_ROOT, help="Root directory for unique external runs.")
+    parser.add_argument("--timeout-seconds", type=int, default=3600, help="Timeout for each subprocess stage.")
     args = parser.parse_args(argv)
 
     output_root = Path(args.output_root)
@@ -591,11 +790,19 @@ def main(argv: list[str] | None = None) -> int:
     env = preflight["environment"]
     write_json(run_dir / "environment.json", env)
     protocol_results: dict[str, Any] = {}
+    strict_audits: dict[str, Any] = {}
     with log_path.open("w", encoding="utf-8") as log_fh:
         log_line(log_fh, f"External reproduction run directory: {run_dir}")
         for cfg in selected_protocols(args.protocol):
-            protocol_results[cfg.key] = run_protocol(cfg, run_dir, log_fh)
-        summary = summarize_run(run_dir, env, protocol_results)
+            protocol_results[cfg.key] = run_protocol(cfg, run_dir, log_fh, args.timeout_seconds)
+        for cfg in selected_protocols(args.protocol):
+            strict_audits[f"{cfg.key}_strict_verifier"] = run_strict_verifier(
+                cfg, run_dir, log_fh, args.strict_environment, args.timeout_seconds
+            )
+        if args.protocol == "all":
+            strict_audits["repository_audit"] = run_repository_audit(run_dir, log_fh, args.timeout_seconds)
+            strict_audits["tamper_tests"] = run_tamper_tests(run_dir, log_fh, args.timeout_seconds)
+        summary = summarize_run(run_dir, env, protocol_results, strict_audits)
         write_json(run_dir / "reproduction_summary.json", summary)
         write_run_checksums(run_dir)
         log_line(log_fh, f"OVERALL {summary['overall_reproduction_status']}")
@@ -604,6 +811,8 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Overall status: {summary['overall_reproduction_status']}")
     for key, result in protocol_results.items():
         print(f"{key}: {result['execution_status']} ({result['scientific_status']})")
+    for key, result in strict_audits.items():
+        print(f"{key}: {result['execution_status']}")
     return exit_code_for_summary(summary)
 
 

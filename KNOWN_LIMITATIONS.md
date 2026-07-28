@@ -31,3 +31,7 @@ protocol.
 - The legacy v2 one-click entry point now delegates to
   `verify_v201_strict_v1.py`. Historical source identities are reported, not
   re-established, and are not a whitelist for current strict verification.
+- The legacy v3 one-click entry point now delegates to
+  `verify_v302_strict_v1.py`. The strict verifier can validate and package
+  existing artifacts after full revalidation, while fresh v3 candidate
+  generation may be slow in some SciPy/LAPACK environments.

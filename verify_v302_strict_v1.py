@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Strict external verifier and packager for the v2.0.1 expected negative."""
+"""Strict external verifier and packager for the v3.0.2 expected pass."""
 
 from __future__ import annotations
 
@@ -21,12 +21,12 @@ from typing import Any
 
 
 REPO_ROOT = Path(__file__).resolve().parent
-MAIN_SCRIPT_NAME = "pasqal_kz_task_ranking_prospective_v2_0_1.py"
-VERIFIER_NAME = "verify_v201_strict_v1.py"
-EXPECTED_PROTOCOL_HASH = "2c05a45f5d534f581c0491a5215534ae657f3eae26e7362ea436850d51d909c4"
-EXPECTED_STATUS = "PROSPECTIVE_KZ_RANKING_AND_TASK_IMPROVEMENT_NOT_SUPPORTED"
-EXPECTED_SELECTED = "v00_m_0.030"
-EXPECTED_CANDIDATES = 60
+MAIN_SCRIPT_NAME = "pasqal_kz_quasistatic_ranking_v3_0_2.py"
+VERIFIER_NAME = "verify_v302_strict_v1.py"
+EXPECTED_PROTOCOL_HASH = "c9917d5119b520fa17e1e56f1d903403b3e2d963d5a24e32e3945fbd253ba39e"
+EXPECTED_STATUS = "PROSPECTIVE_KZ_RANKING_AND_TASK_IMPROVEMENT_SUPPORTED"
+EXPECTED_SELECTED = "v01_m_0.150"
+EXPECTED_CANDIDATES = 80
 EXPECTED_HELDOUT = 4
 REQUIRED_OUTPUTS = (
     "summary.json",
@@ -185,13 +185,13 @@ def unique_run_dir(output_root: Path) -> Path:
     output_root.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     for _ in range(100):
-        candidate = output_root / "v201" / f"{stamp}_{secrets.token_hex(4)}"
+        candidate = output_root / "v302" / f"{stamp}_{secrets.token_hex(4)}"
         try:
             candidate.mkdir(parents=True)
             return candidate.resolve()
         except FileExistsError:
             continue
-    raise VerificationError("Could not create a unique v201 run directory.")
+    raise VerificationError("Could not create a unique v302 run directory.")
 
 
 def log(log_fh: Any, message: str) -> None:
@@ -309,7 +309,7 @@ def validate_results(eval_dir: Path, manifest_path: Path) -> dict[str, Any]:
     if summary_selected != ranking_selected:
         raise VerificationError("Selected candidate differs between summary and ranking certificate.")
     if summary_selected != EXPECTED_SELECTED:
-        raise UnexpectedScientificResult("Selected candidate differs from expected v2.0.1 negative.")
+        raise UnexpectedScientificResult("Selected candidate differs from expected v3.0.2 pass.")
 
     heldout = summary.get("heldout_rows", [])
     audit = summary.get("candidate_audit", {})
@@ -331,18 +331,26 @@ def validate_results(eval_dir: Path, manifest_path: Path) -> dict[str, Any]:
     ]
     if any(gates.get(name) is not True for name in ranking_gates):
         raise VerificationError("Unexpected ranking gate failure.")
-    expected_false = ["predicted_improvement_predeclared_minimum", "minimum_relative_improvement_each_gamma"]
-    if any(gates.get(name) is not False for name in expected_false):
-        raise UnexpectedScientificResult("Expected effect-size gates did not fail.")
-    if summary.get("all_gates_pass") is not False or summary.get("scientific_status") != EXPECTED_STATUS:
-        raise UnexpectedScientificResult("Scientific status does not match expected negative.")
+    required_true = [
+        "predicted_improvement_predeclared_minimum",
+        "minimum_relative_improvement_each_gamma",
+        "selected_beats_reference_at_every_gamma",
+        "selected_rank_fraction_each_gamma",
+        "selection_not_worst_at_any_gamma",
+        "prediction_sign_correct_at_every_gamma",
+        "maximum_first_order_relative_error",
+    ]
+    if any(gates.get(name) is not True for name in required_true):
+        raise UnexpectedScientificResult("Expected v3 pass gates did not all pass.")
+    if summary.get("all_gates_pass") is not True or summary.get("scientific_status") != EXPECTED_STATUS:
+        raise UnexpectedScientificResult("Scientific status does not match expected pass.")
 
     predicted = audit.get("predicted_relative_improvement")
     heldout_effects = [row.get("relative_improvement") for row in heldout]
-    if not isinstance(predicted, (float, int)) or not 0.0045 <= float(predicted) <= 0.0051:
-        raise UnexpectedScientificResult("Predicted improvement is outside expected 0.484% range.")
-    if not all(isinstance(x, (float, int)) and 0.0045 <= float(x) <= 0.0051 for x in heldout_effects):
-        raise UnexpectedScientificResult("Held-out improvements are outside expected 0.482% range.")
+    if not isinstance(predicted, (float, int)) or not 0.20 <= float(predicted) <= 0.21:
+        raise UnexpectedScientificResult("Predicted improvement is outside expected 20.5% range.")
+    if not all(isinstance(x, (float, int)) and 0.20 <= float(x) <= 0.21 for x in heldout_effects):
+        raise UnexpectedScientificResult("Held-out improvements are outside expected 20.3-20.6% range.")
 
     return {
         **manifest_check,
@@ -354,8 +362,8 @@ def validate_results(eval_dir: Path, manifest_path: Path) -> dict[str, Any]:
         "selected_candidate_match": True,
         "execution_success": True,
         "expected_scientific_outcome_reproduced": True,
-        "scientific_result": "NEGATIVE",
-        "wrapper_status": "REPRODUCED_EXPECTED_NEGATIVE",
+        "scientific_result": "PASS",
+        "wrapper_status": "REPRODUCED_EXPECTED_PASS",
         "scientific_status": summary.get("scientific_status"),
         "all_gates_pass": summary.get("all_gates_pass"),
         "predicted_relative_improvement": predicted,
@@ -385,12 +393,13 @@ def copy_required(src: Path, dst: Path) -> None:
 
 def make_readme(path: Path) -> None:
     path.write_text(
-        "# v2.0.1 Strict External Reproduction Bundle\n\n"
-        "This bundle is self-contained for auditing the v2.0.1 expected negative. "
+        "# v3.0.2 Strict External Reproduction Bundle\n\n"
+        "This bundle is self-contained for auditing the v3.0.2 expected pass. "
         "The verifier is self-identifying via file-byte SHA-256, but this is not "
         "third-party timestamping or certification.\n\n"
-        "Expected result: `REPRODUCED_EXPECTED_NEGATIVE`. The v2.0.1 ranking gates "
-        "pass, while the predeclared practical-effect gates fail.\n",
+        "Expected result: `REPRODUCED_EXPECTED_PASS`. The v3.0.2 ranking and "
+        "predeclared practical-effect gates pass in the frozen exact "
+        "quasi-static-detuning model.\n",
         encoding="utf-8",
     )
 
@@ -403,7 +412,7 @@ def package_bundle(
     env: dict[str, Any],
     provenance: dict[str, Any],
 ) -> dict[str, Any]:
-    staging = run_dir / "bundle_v201"
+    staging = run_dir / "bundle_v302"
     if staging.exists():
         raise VerificationError(f"Bundle staging already exists: {staging}")
     staging.mkdir()
@@ -422,7 +431,7 @@ def package_bundle(
     if missing:
         raise VerificationError("Bundle staging is incomplete: " + ", ".join(missing))
 
-    zip_base = run_dir / f"v201_external_reproduction_{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}_{secrets.token_hex(4)}"
+    zip_base = run_dir / f"v302_external_reproduction_{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}_{secrets.token_hex(4)}"
     zip_path = zip_base.with_suffix(".zip")
     if zip_path.exists():
         raise VerificationError(f"ZIP already exists: {zip_path}")
@@ -442,7 +451,7 @@ def fresh_reproduction(args: argparse.Namespace, run_dir: Path, env: dict[str, A
     main_script = (REPO_ROOT / MAIN_SCRIPT_NAME).resolve()
     verifier = (REPO_ROOT / VERIFIER_NAME).resolve()
     expected_source_hash = sha256_bytes(main_script)
-    log_path = run_dir / "verify_v201_strict_v1.log"
+    log_path = run_dir / "verify_v302_strict_v1.log"
     commit_dir = run_dir / "commitment"
     eval_dir = run_dir / "evaluation"
     with log_path.open("w", encoding="utf-8") as log_fh:
@@ -519,7 +528,7 @@ def reuse_existing(args: argparse.Namespace, run_dir: Path, env: dict[str, Any])
 
 
 def historical_audit(args: argparse.Namespace, env: dict[str, Any]) -> int:
-    path = Path(args.historical_manifest or "manifests/v2.0.1/prospective_protocol.json")
+    path = Path(args.historical_manifest or "manifests/v3.0.2/prospective_protocol.json")
     manifest = read_json((REPO_ROOT / path).resolve() if not path.is_absolute() else path)
     report = {
         "mode": "historical_audit",
@@ -534,7 +543,7 @@ def historical_audit(args: argparse.Namespace, env: dict[str, Any]) -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--output-root", default="external_runs", help="Root for fresh v201 reproduction runs.")
+    parser.add_argument("--output-root", default="external_runs", help="Root for fresh v302 reproduction runs.")
     parser.add_argument("--strict-environment", action="store_true", help="Require CPython 3.12 and locked dependencies.")
     parser.add_argument("--reuse-existing", default=None, help="Verified package of an existing evaluation directory.")
     parser.add_argument("--manifest", default=None, help="Manifest path for --reuse-existing.")
@@ -568,8 +577,8 @@ def main() -> int:
             }),
             "execution_success": True,
             "expected_scientific_outcome_reproduced": True,
-            "scientific_result": "NEGATIVE",
-            "wrapper_status": "REPRODUCED_EXPECTED_NEGATIVE",
+            "scientific_result": "PASS",
+            "wrapper_status": "REPRODUCED_EXPECTED_PASS",
             "verifier_name": VERIFIER_NAME,
             "verifier_hash_algorithm": "sha256-file-bytes-v1",
             "verifier_sha256": env["verifier_identity"]["verifier_sha256"],

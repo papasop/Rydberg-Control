@@ -1,0 +1,85 @@
+{
+  "protocol": {
+    "script_id": "KQS-PROSPECTIVE-DETUNING-RANKING-v3.0.2",
+    "seed": 20260728,
+    "scope": "exact local two-atom Rydberg model; no cloud, QPU, or measurement",
+    "system": {
+      "atoms": 2,
+      "segments": 6,
+      "segment_duration_us": 0.12,
+      "spacing_um": 6.0,
+      "control_dimension": 18
+    },
+    "endpoint": {
+      "equivalence": "complete ideal unitary up to global phase",
+      "jacobian_fd": 0.001,
+      "rank_relative_cut": 1e-06,
+      "candidate_tangent_amplitudes": [
+        0.03,
+        0.06,
+        0.1,
+        0.15
+      ],
+      "candidate_directions": "plus/minus each deterministic right-null singular vector",
+      "endpoint_infidelity_tol": 1e-11,
+      "endpoint_residual_tol": 2e-08,
+      "minimum_control_separation": 1e-05
+    },
+    "noise": {
+      "model": "zero-mean common quasi-static detuning offset",
+      "offset_units": "rad/us",
+      "predictor_step_rad_per_us": 0.002,
+      "heldout_sigma_rad_per_us": [
+        0.03,
+        0.06,
+        0.12,
+        0.24
+      ],
+      "gauss_hermite_order": 15,
+      "selection_uses_heldout_sigma_or_averaged_losses": false
+    },
+    "task": {
+      "input_state": "|00>",
+      "ideal_target": "U0|00>",
+      "loss": "Jbar(z,sigma)=E_xi[1-|<psi_target|U_z(xi)|00>|^2], xi~Normal(0,sigma^2)",
+      "predictor": "q2(z)=0.5*d^2 J(z,xi)/dxi^2 at xi=0; for zero-mean quasi-static noise, E[J]=J0+q2*sigma^2+O(sigma^4)"
+    },
+    "ranking": {
+      "population": "all endpoint-valid non-reference candidates",
+      "rule": "ascending q2(z), with deterministic candidate_id tie-break",
+      "frozen_artifact": "predicted_ranking_frozen_before_heldout.json",
+      "top_fraction": 0.2,
+      "pairwise_tie_tolerance": 1e-13
+    },
+    "selection": {
+      "rule": "among endpoint-valid candidates choose the smallest predicted quasi-static variance susceptibility q2; candidate_id tie-break",
+      "reference_not_used_as_candidate": true,
+      "minimum_predicted_relative_improvement": 0.01
+    },
+    "heldout_gates": {
+      "all_losses_finite": true,
+      "minimum_spearman_rho_each_gamma": 0.8,
+      "minimum_kendall_tau_each_gamma": 0.65,
+      "minimum_pairwise_concordance_each_gamma": 0.8,
+      "minimum_top_k_overlap_each_gamma": 0.6,
+      "selected_beats_reference_at_every_gamma": true,
+      "minimum_relative_improvement_each_gamma": 0.005,
+      "selected_rank_fraction_max_each_gamma": 0.2,
+      "prediction_sign_correct_at_every_gamma": true,
+      "maximum_first_order_relative_error": 0.2
+    },
+    "negative_controls": {
+      "unselected_candidates_are_evaluated": true,
+      "selection_must_not_be_worst_at_any_gamma": true
+    },
+    "claim_boundary": "A PASS supports the prospective claim that an ideal-path K_qs(z) variance susceptibility ranks finite quasi-static-detuning state-transfer losses in this frozen exact two-atom, six-segment model. The held-out losses are simulated outcomes, not measurements. It is not PASQAL production compilation, hardware/cloud evidence, a universal path-cost, or physics beyond standard Lindblad quantum mechanics."
+  },
+  "protocol_sha256": "c9917d5119b520fa17e1e56f1d903403b3e2d963d5a24e32e3945fbd253ba39e",
+  "source_sha256": "04179b8059dc4e62f4edc080fe2a8f40e4ee19d567b86eaef5a29a4f0ceae3e9",
+  "frozen_utc": "2026-07-28T00:27:16.295137+00:00",
+  "outcomes_computed": false,
+  "environment": {
+    "python": "3.9.6",
+    "numpy": "2.0.2"
+  }
+}

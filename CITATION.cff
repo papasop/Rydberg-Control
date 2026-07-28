@@ -1,0 +1,9 @@
+cff-version: 1.2.0
+title: Same Ideal Gate, Predictably Different Noise in Rydberg Control
+message: "If you use this reproduction package, please cite the archived paper."
+type: software
+authors:
+  - family-names: papasop
+date-released: "2026-07-27"
+doi: 10.5281/zenodo.21629515
+url: https://zenodo.org/records/21629515

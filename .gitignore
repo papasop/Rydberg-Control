@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.DS_Store
+.venv/
+venv/
+
+# Local reruns. Curated reference artifacts under manifests/ and results/
+# should be added explicitly before relying on these patterns.
+pasqal_kz_commit_*/
+pasqal_kqs_v302_eval_*/
+pasqal_kz_eval_*/
+pasqal_kz_ranking_eval_*/
+*.zip

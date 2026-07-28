@@ -1,2 +1,8 @@
+# Direct runtime dependencies.
+# Python itself is declared separately in .python-version.
+#
+# This file favors a small supported range. After reproducing the reference
+# run in a clean Python 3.12 environment, create requirements-lock-python312.txt
+# with exact versions. Do not invent the historical SciPy patch version.
 numpy==2.0.2
-scipy>=1.11
+scipy>=1.11,<2.0

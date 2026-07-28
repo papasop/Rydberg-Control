@@ -1,17 +1,27 @@
 # K(z)-Guided Prospective Task-Loss Ranking — Reproduction Package
 
-Frozen, falsifiable evaluation of whether an **ideal-path** control descriptor
-can rank **finite-noise task losses** — computed *before* any noisy outcome —
-for controls that share the same complete ideal unitary.
+This repository contains two programmatically frozen prospective protocols for
+testing whether a task-relative local susceptibility can rank held-out
+finite-noise task losses among controls that are numerically equivalent at the
+complete ideal-unitary endpoint.
 
-Two pre-registered protocols are included:
+The protocols were frozen inside the computational workflow. They were not
+externally timestamped or registered with a third party.
 
-| Protocol | Noise model | Predictor | Verdict |
+| Protocol | Noise model | Frozen predictor | Verdict |
 |---|---|---|---|
-| v2.0.1 (`2c05a45f…`) | Weak local Markovian dephasing | First-order slope `j1(z) = −Re Tr[ρ_target G_z(ρ₀₀)]`, `G_z = dE_z/dγ` at γ = 0 | **FAIL** — ranking perfect (Spearman 1.0) but task improvement 0.48% < 1% predeclared minimum |
-| v3.0.2 (`c9917d51…`) | Zero-mean common quasi-static detuning offset ξ ~ N(0, σ²) | Variance susceptibility `q2(z) = ½ d²J/dξ²` at ξ = 0 | **PASS (14/14 gates)** — predicted improvement 20.56%, measured 20.3–20.6%, prediction error ≤ 0.96% |
+| v2.0.1 (`2c05a45f…`) | Weak local Markovian dephasing | First-order task slope `j1(z)` at `gamma = 0` | **FAIL** — ranking succeeded, but the predicted 0.484% and held-out simulated 0.482% improvements failed the predeclared effect-size gates |
+| v3.0.2 (`c9917d51…`) | Zero-mean common quasi-static detuning | Local variance susceptibility `q2(z) = 0.5 d²J/dxi²` evaluated from the predeclared probes `xi = {-h,0,+h}` | **PASS** — predicted improvement 20.557%; held-out simulated improvement 20.319–20.554% |
 
-The v2.0.1 failure is reported as registered. It is part of the evidence:
+For v3, the selector uses the local probes `xi = {-h,0,+h}` but does not use
+any held-out finite-`sigma` Gaussian-averaged loss. The full ranking is written
+to a certificate before those held-out losses are evaluated.
+
+These are exact-model simulated outcomes. They are not PASQAL production
+compilation, cloud execution, physical-QPU measurements, a universal path cost,
+or evidence beyond standard quantum mechanics.
+
+The v2.0.1 failure is reported as part of the frozen evaluation trail:
 the same predictor architecture yields a real, falsifiable negative under one
 noise model and a positive under another.
 
@@ -24,6 +34,9 @@ noise model and a positive under another.
 ├── pasqal_kqs_v302_one_click.py              # v3.0.2 standalone verifier/packager
 ├── pasqal_kz_task_ranking_prospective_v2_0_1.py  # v2.0.1 main script (Markovian dephasing)
 ├── pasqal_kz_v201_one_click.py               # v2.0.1 standalone verifier/packager
+├── CORRIGENDA.md
+├── CITATION.cff
+├── ARTIFACTS.sha256
 ├── manifests/
 │   ├── v2.0.1/prospective_protocol.json      # frozen protocol, protocol_sha256 = 2c05a45f…
 │   └── v3.0.2/prospective_protocol.json      # frozen protocol, protocol_sha256 = c9917d51…
@@ -50,22 +63,21 @@ noisy losses).
 
 ## 2. Environment
 
-- Python **3.12.x** (developed on 3.12.13)
-- Dependencies: `pip install -r requirements.txt`
+- CPython **3.12.x**; the original development environment used Python 3.12.13.
+- Direct runtime dependencies are listed in `requirements.txt`.
+- `requirements-lock-python312.txt`, when present, records the exact
+  successfully reproduced Python 3.12 environment.
 
 ```
 numpy==2.0.2
-scipy>=1.11
+scipy>=1.11,<2.0
 ```
 
-> **Python-version caveat.** The `source_sha256` commitment hashes a
-> normalized inventory of *compiled bytecode* (a deliberate defence against
-> notebook-namespace tampering). It therefore matches only under the same
-> CPython version (3.12.x). On other Python versions the source-hash gate
-> will fail even for a byte-identical file; in that case verify the
-> **protocol hash** and the **ranking certificate hash** instead — the
-> scientific outputs are pure NumPy/SciPy numerics and are
-> version-insensitive to within floating-point reproducibility.
+The scientific protocol hash identifies canonical protocol content. Source
+hashes and ranking-certificate hashes are separate artifacts. Some historical
+source-hash implementations and ranking JSON byte hashes are interpreter- or
+NumPy-version sensitive; therefore scientific reproduction should report both
+the strict byte-hash checks and the numerical gate results.
 
 ---
 
@@ -124,7 +136,8 @@ existing output directory).
 ### Headline numbers (should match `results/v3.0.2/summary.json`)
 
 - 80/80 endpoint-valid candidates; selected `v01_m_0.150`
-- Predicted relative improvement **20.557%**; measured **20.32–20.55%** at
+- Predicted relative improvement **20.557%**; held-out simulated improvement
+  **20.32–20.55%** at
   σ ∈ {0.03, 0.06, 0.12, 0.24} rad/µs
 - Prediction relative error **≤ 0.96%** (0.015% at σ = 0.03)
 - Spearman ρ ≥ 0.99986, pairwise concordance ≥ 0.9984 (3160 pairs),
@@ -202,9 +215,14 @@ Result ZIP certificates:
    the endpoint Jacobian at the reference control `z₀`, ± directions ×
    fixed tangent amplitudes; each candidate is nonlinearly corrected back
    onto the full-unitary endpoint fibre (infidelity ≤ 1e-11).
-3. **Frozen prediction**: rank all valid candidates by the ideal-path
-   predictor only (`q2` for v3, `j1` for v2). The complete ranking and all
-   controls are written to disk *before* any noisy simulation.
+3. **Frozen prediction**
+   - v2 ranks endpoint-valid candidates by the zero-noise Markovian task
+     derivative `j1(z)`;
+   - v3 ranks endpoint-valid candidates by `q2(z)`, evaluated from the
+     predeclared infinitesimal probes `xi = {-h,0,+h}`.
+
+   The complete candidate ranking and controls are written to disk before any
+   held-out finite-noise loss is evaluated.
 4. **Held-out evaluation**: exact quasi-static averaging (Gauss–Hermite
    order 15; v3) or exact Lindblad channels (v2) at held-out noise strengths
    never used by the selector.

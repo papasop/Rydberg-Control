@@ -1,0 +1,85 @@
+{
+  "protocol": {
+    "script_id": "KZ-PROSPECTIVE-TASK-LOSS-RANKING-v2.0.1",
+    "seed": 20260728,
+    "scope": "exact local two-atom Rydberg model; no cloud, QPU, or measurement",
+    "system": {
+      "atoms": 2,
+      "segments": 6,
+      "segment_duration_us": 0.12,
+      "spacing_um": 6.0,
+      "control_dimension": 18
+    },
+    "endpoint": {
+      "equivalence": "complete ideal unitary up to global phase",
+      "jacobian_fd": 0.001,
+      "rank_relative_cut": 1e-06,
+      "candidate_tangent_amplitudes": [
+        0.01,
+        0.02,
+        0.03
+      ],
+      "candidate_directions": "plus/minus each deterministic right-null singular vector",
+      "endpoint_infidelity_tol": 1e-11,
+      "endpoint_residual_tol": 2e-08,
+      "minimum_control_separation": 1e-05
+    },
+    "noise": {
+      "model": "local occupation dephasing",
+      "jump_operators": [
+        "n1",
+        "n2"
+      ],
+      "selection_uses_exact_noisy_channels": false,
+      "heldout_gamma_per_us": [
+        0.00375,
+        0.0075,
+        0.015,
+        0.03
+      ]
+    },
+    "task": {
+      "input_state": "|00>",
+      "ideal_target": "U0|00>",
+      "loss": "J(z,gamma)=1-<psi_target|E_z(gamma)(|00><00|)|psi_target>",
+      "predictor": "j1(z)=-Re Tr[rho_target G_z(rho00)], G_z=dE_z/dgamma at gamma=0"
+    },
+    "ranking": {
+      "population": "all endpoint-valid non-reference candidates",
+      "rule": "ascending j1(z), with deterministic candidate_id tie-break",
+      "frozen_artifact": "predicted_ranking_frozen_before_heldout.json",
+      "top_fraction": 0.2,
+      "pairwise_tie_tolerance": 1e-13
+    },
+    "selection": {
+      "rule": "among endpoint-valid candidates choose the smallest predicted first-order slope j1; deterministic candidate_id tie-break",
+      "reference_not_used_as_candidate": true,
+      "minimum_predicted_relative_improvement": 0.01
+    },
+    "heldout_gates": {
+      "all_losses_finite": true,
+      "minimum_spearman_rho_each_gamma": 0.8,
+      "minimum_kendall_tau_each_gamma": 0.65,
+      "minimum_pairwise_concordance_each_gamma": 0.8,
+      "minimum_top_k_overlap_each_gamma": 0.6,
+      "selected_beats_reference_at_every_gamma": true,
+      "minimum_relative_improvement_each_gamma": 0.005,
+      "selected_rank_fraction_max_each_gamma": 0.2,
+      "prediction_sign_correct_at_every_gamma": true,
+      "maximum_first_order_relative_error": 0.15
+    },
+    "negative_controls": {
+      "unselected_candidates_are_evaluated": true,
+      "selection_must_not_be_worst_at_any_gamma": true
+    },
+    "claim_boundary": "A PASS supports the prospective claim that an ideal-path K(z)-derived first-order score ranks finite-noise state-transfer losses in this frozen exact two-atom, six-segment, local-dephasing model. The held-out losses are simulated outcomes, not measurements. It is not PASQAL production compilation, hardware/cloud evidence, a universal path-cost, or physics beyond standard Lindblad quantum mechanics."
+  },
+  "protocol_sha256": "2c05a45f5d534f581c0491a5215534ae657f3eae26e7362ea436850d51d909c4",
+  "source_sha256": "8442f0282845be197446299692af57ebd99a45cb5877674bc3d9abb79ebd518b",
+  "frozen_utc": "2026-07-28T00:27:16.293555+00:00",
+  "outcomes_computed": false,
+  "environment": {
+    "python": "3.9.6",
+    "numpy": "2.0.2"
+  }
+}

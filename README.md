@@ -6,7 +6,7 @@ finite-noise task losses among controls that are numerically equivalent at the
 complete ideal-unitary endpoint.
 
 The protocols were frozen inside the computational workflow. They were not
-externally timestamped or registered with a third party.
+externally timestamped or certified by a third party.
 
 | Protocol | Noise model | Frozen predictor | Verdict |
 |---|---|---|---|
@@ -203,8 +203,8 @@ plus certificate.
 > `8442f028…`. The one-click verifier accepts all known hashes. As with
 > v3, the ranking hash is NumPy-version sensitive at the ~1e-6 relative
 > level while all rank statistics reproduce exactly (verified on
-> NumPy 2.2.5: Spearman = 1.0 at every γ, both improvement gates failing
-> as registered).
+> NumPy 2.2.5: Spearman = 1.0 at every γ, both improvement gates failing as
+> recorded under the frozen protocol).
 
 ---
 

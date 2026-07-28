@@ -347,7 +347,7 @@ An earlier computational record was archived under the title:
 
 - *Prospective Noise-Robust Control on a Fixed-Unitary Fibre*,
   Zenodo, 2026-07-27:
-  https://zenodo.org/records/21629515
+  https://doi.org/10.5281/zenodo.21634625
 
 The current manuscript, *Prospective Noise-Robust Control within a
 Fixed-Unitary Fibre*, narrows and strengthens that earlier motivation into a

@@ -2,10 +2,10 @@
 ### Reproduction Package
 
 Can a locally computed, task-relative susceptibility select a more
-noise-robust control before any noisy simulation is run, among controls that
-are numerically identical at the complete ideal-unitary endpoint? This
-repository contains two programmatically frozen prospective protocols that
-answer this question in a frozen exact two-atom Rydberg model:
+noise-robust control before any held-out finite-noise loss is evaluated, among
+controls that are numerically identical at the complete ideal-unitary endpoint?
+This repository contains two programmatically frozen prospective protocols
+that answer this question in a frozen exact two-atom Rydberg model:
 
 - **v3.0.2 (quasi-static detuning) — PASS**: the frozen `q2` ranking selects
   `v01_m_0.150`, with 20.6% lower leading susceptibility and 20.3%–20.6%
@@ -21,27 +21,60 @@ simulated outcomes, not PASQAL production compilation, cloud execution,
 physical-QPU measurements, a universal path cost, or evidence beyond standard
 quantum mechanics.
 
-## Motivation: path-accumulated cost in quantum control
+## Conceptual provenance: a path-dependent realization layer
 
-This package is a finite-dimensional, executable instance of a broader
-structural idea studied in the author's accompanying work on information time
-as a cost layer of physical change (Principle R and the K=1 framework): a
-physical process is not fully described by its endpoint or by any compressed
-summary of it; the accumulated cost along the path can carry independent,
-physically load-bearing information.
+This repository was motivated by a broader structural idea developed in the
+author's work on information time, Principle R, and the K=1 framework:
+physical change may possess a realization-cost layer that is not determined
+by the endpoint alone. In that framework, a path-dependent cost is written
+schematically as
 
-Here that idea takes a concrete, testable form. Controls sharing the same
-complete ideal-unitary endpoint (a ten-dimensional fibre of the 18-dimensional
-control space) differ in how much noise cost they accumulate along the
-trajectory. A local, task-projected readout of that accumulation (`q2`, `j1`)
-can rank finite-noise task losses before any noisy simulation is run, and a
-predeclared negative protocol (v2.0.1) shows that rankability and practical
-utility must be gated separately.
+\[
+E[\gamma]=\int_\gamma F(\gamma,\dot{\gamma})\,d\lambda .
+\]
 
-The two research lines are structurally related but logically independent:
-nothing in this package assumes the K=1 framework, and the present results are
-not evidence for it. Both share the same protocol discipline: predeclared
-gates, programmatic freezing, and explicitly recorded negative outcomes.
+The present quantum-control study does not assume or test that framework.
+It investigates a finite-dimensional operational analogue. Controls can have
+the same complete ideal-unitary endpoint while following different
+time-dependent Hamiltonian trajectories. Under a specified task and noise
+model, those trajectories can therefore have different local susceptibilities
+and different finite-noise losses.
+
+The correspondence is structural rather than deductive:
+
+| General cost-layer idea | Operational object in this repository |
+|---|---|
+| Endpoint equivalence does not determine realization cost | Equal complete ideal unitary does not determine finite-noise task loss |
+| Cost depends on the executed path | `j1(z)` and `q2(z)` depend on the control trajectory and declared noise model |
+| A limiting or ordering statement need not imply practical realization | Accurate ranking need not pass a predeclared utility threshold |
+| Structural claims require falsifiable gates | v2 is an expected negative; v3 is a positive under separately declared gates |
+
+For the quasi-static protocol, `q2(z)` is evaluated locally from the
+predeclared probes `xi = {-h,0,+h}`. It is used to freeze the candidate
+ranking before any held-out finite-`sigma` Gaussian-averaged loss is
+evaluated. For sufficiently weak noise,
+
+\[
+\overline J(z,\sigma)
+=J(z,0)+q_2(z)\sigma^2+O(\sigma^4).
+\]
+
+Because the endpoint-equivalent candidates share the same `J(z,0)` within
+the declared numerical tolerance, `q2(z)` determines their leading
+weak-noise ordering. The substantive numerical result is the
+candidate-dependent susceptibility reduction and the finite declared window
+over which the selected advantage persists.
+
+The endpoint-equivalent controls form a locally resolved family whose endpoint
+Jacobian has rank 8 and right-nullity 10 in the declared 18-dimensional
+control parameterisation. This local Jacobian statement should not be read as
+a global claim that the entire endpoint fibre is everywhere a smooth
+ten-dimensional manifold.
+
+These results are not evidence for a universal information-time functional,
+Principle R, or the K=1 framework. They provide a task- and noise-relative
+quantum-control realization of the more general distinction between endpoint
+description and path-dependent implementation.
 
 | Protocol | Noise model | Frozen predictor | Verdict |
 |---|---|---|---|

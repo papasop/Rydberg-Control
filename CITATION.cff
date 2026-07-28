@@ -1,9 +1,23 @@
 cff-version: 1.2.0
-title: Same Ideal Gate, Predictably Different Noise in Rydberg Control
-message: "If you use this reproduction package, please cite the archived paper."
+title: "Prospective Noise-Robust Control within a Fixed-Unitary Fibre: Reproduction Package"
+message: "If you use this software, please cite the current manuscript and the preliminary archived record where appropriate."
 type: software
 authors:
-  - family-names: papasop
-date-released: "2026-07-27"
-doi: 10.5281/zenodo.21629515
-url: https://zenodo.org/records/21629515
+  - family-names: "Li"
+    given-names: "Y. Y. N."
+date-released: "2026-07-28"
+repository-code: "https://github.com/papasop/fixed-unitary-noise-robust-control"
+url: "https://github.com/papasop/fixed-unitary-noise-robust-control"
+
+# Replace or extend this block after the current manuscript receives its own DOI.
+# The DOI below belongs to the earlier preliminary record, not to the current
+# manuscript.
+preferred-citation:
+  type: article
+  title: "Same Ideal Gate, Predictably Different Noise in Rydberg Control"
+  authors:
+    - family-names: "Li"
+      given-names: "Y. Y. N."
+  year: 2026
+  doi: "10.5281/zenodo.21629515"
+  url: "https://zenodo.org/records/21629515"

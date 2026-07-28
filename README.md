@@ -37,12 +37,13 @@ noise model and a positive under another.
 ├── CORRIGENDA.md
 ├── CITATION.cff
 ├── ARTIFACTS.sha256
+├── REFERENCE_RUNS.md
 ├── manifests/
 │   ├── v2.0.1/prospective_protocol.json      # frozen protocol, protocol_sha256 = 2c05a45f…
 │   └── v3.0.2/prospective_protocol.json      # frozen protocol, protocol_sha256 = c9917d51…
 ├── results/
-│   ├── v2.0.1/summary.json                   # our reference outputs (FAIL)
-│   └── v3.0.2/summary.json                   # our reference outputs (PASS)
+│   ├── v2.0.1/summary.json                   # independent CPython 3.9.6 rerun (FAIL)
+│   └── v3.0.2/summary.json                   # independent CPython 3.9.6 rerun (PASS)
 ├── requirements.txt
 └── README.md
 ```
@@ -64,8 +65,6 @@ noisy losses).
 
 - CPython **3.12.x**; the original development environment used Python 3.12.13.
 - Direct runtime dependencies are listed in `requirements.txt`.
-- `requirements-lock-python312.txt`, when present, records the exact
-  successfully reproduced Python 3.12 environment.
 
 ```
 numpy==2.0.2
@@ -82,13 +81,19 @@ the strict byte-hash checks and the numerical gate results.
 
 ## 3. Data provenance
 
-The archived paper reports the original Python 3.12 evaluation data and its
-reference hashes. This repository also includes independently regenerated
-artifacts under `manifests/` and `results/`, produced on CPython 3.9.6 with
-NumPy 2.0.2 from the committed scripts. Those repository artifacts reproduce
-the protocol-content hashes and numerical gate verdicts, but some source and
-ranking-certificate byte hashes differ from the original Python 3.12 run for
-the version-sensitivity reasons documented above and in `ARTIFACTS.sha256`.
+The manuscript reports the original CPython 3.12 evaluation and its reference
+hashes. The committed artifacts under `manifests/` and `results/` were
+independently regenerated on CPython 3.9.6 with NumPy 2.0.2 from the published
+scripts. They reproduce the protocol-content hashes, selected controls,
+scientific verdicts, gate outcomes, and reported effect sizes. Some
+floating-point values, source identities, and ranking-certificate byte hashes
+differ from the original CPython 3.12 run.
+
+The public rerun artifacts must therefore not be interpreted as the original
+byte-level reference artifacts. If the original CPython 3.12 files are later
+recovered, they will be archived under a separate immutable directory rather
+than replacing the public reruns. See `REFERENCE_RUNS.md` for the side-by-side
+reference and public-rerun hash record.
 
 ---
 
@@ -144,7 +149,12 @@ existing output directory).
 > NumPy 2.2.5: identical Spearman values to all printed digits,
 > `all_gates_pass: true`).
 
-### Headline numbers (should match `results/v3.0.2/summary.json`)
+### Reference CPython 3.12 headline numbers reported in the manuscript
+
+The numbers below are from the original CPython 3.12 reference evaluation. The
+committed `results/v3.0.2/summary.json` is an independent CPython 3.9.6 rerun.
+It reproduces the selected control, scientific verdict, gate outcomes, and
+effect size, but is not byte-identical to the reference output.
 
 - 80/80 endpoint-valid candidates; selected `v01_m_0.150`
 - Predicted relative improvement **20.557%**; held-out simulated improvement
@@ -252,11 +262,18 @@ Lindblad/quantum mechanics.
 
 ## 9. Reference
 
-Paper (archived, DOI):
+### Preliminary computational record
+
+An earlier computational record was archived under the title:
 
 - *Same Ideal Gate, Predictably Different Noise in Rydberg Control*,
-  Zenodo, published 2026-07-27:
+  Zenodo, 2026-07-27:
   https://zenodo.org/records/21629515
+
+The current manuscript, *Prospective Noise-Robust Control within a
+Fixed-Unitary Fibre*, narrows and strengthens that earlier motivation into a
+task-relative prospective ranking and control-selection study. The earlier DOI
+must not be interpreted as the DOI of the current manuscript.
 
 The v1 path-response construction (CW/CCW/ALT lifts, K_z first-order closure
 to 1.1%) is described in the accompanying paper and reproduced by

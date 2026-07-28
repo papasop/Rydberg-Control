@@ -40,10 +40,31 @@ git clone https://github.com/papasop/fixed-unitary-noise-robust-control.git && c
 ### Google Colab
 
 Colab installations may not provide a working `ensurepip` for `python -m venv`.
-Use `virtualenv` instead:
+Use `virtualenv` instead. Paste the following into a new Google Colab code cell:
 
 ```bash
-RUN_ROOT="/content/fixed-unitary-reproduction-$(date -u +%Y%m%dT%H%M%SZ)" && git clone https://github.com/papasop/fixed-unitary-noise-robust-control.git "$RUN_ROOT/repo" && cd "$RUN_ROOT/repo" && git checkout d532e30c2cbf307501a84ba9951dbaba6084cf79 && python -m pip install -q virtualenv && python -m virtualenv -q "$RUN_ROOT/venv" && "$RUN_ROOT/venv/bin/python" -m pip install -q -r requirements-lock-python312.txt && "$RUN_ROOT/venv/bin/python" reproduce.py --protocol all --strict-environment
+%%bash
+set -euo pipefail
+
+RUN_ROOT="/content/fixed-unitary-reproduction-$(date -u +%Y%m%dT%H%M%SZ)"
+
+git clone \
+  https://github.com/papasop/fixed-unitary-noise-robust-control.git \
+  "$RUN_ROOT/repo"
+
+cd "$RUN_ROOT/repo"
+
+git checkout d532e30c2cbf307501a84ba9951dbaba6084cf79
+
+python -m pip install -q virtualenv
+python -m virtualenv -q "$RUN_ROOT/venv"
+
+"$RUN_ROOT/venv/bin/python" -m pip install -q \
+  -r requirements-lock-python312.txt
+
+"$RUN_ROOT/venv/bin/python" reproduce.py \
+  --protocol all \
+  --strict-environment
 ```
 
 ### Docker
@@ -56,12 +77,19 @@ docker build -t fixed-unitary-noise-robust-control .
 docker run --rm -v "$PWD/external_runs:/app/external_runs" fixed-unitary-noise-robust-control
 ```
 
-### Windows
+### POSIX wrapper
 
-Shell and Windows entry points are also provided; pass strict mode explicitly:
+The POSIX wrapper accepts strict mode explicitly:
 
 ```bash
 ./reproduce.sh --strict-environment
+```
+
+### Windows PowerShell
+
+The Windows PowerShell wrapper accepts the same strict flag:
+
+```powershell
 pwsh ./reproduce.ps1 --strict-environment
 ```
 
@@ -111,12 +139,11 @@ cat external_runs/<run-id>/v2/evaluation/heldout_results.csv
 `fresh_freeze_evaluate_source_bytes_match: true` means that the exact same
 source-file bytes were used during the fresh commitment and evaluation stages.
 
-A separately reported `strict_source_identity_match: false` may indicate that
-the currently shipped public script is not byte-identical to the historical
-reference source identity recorded for the original evaluation. This can
-coexist with a successful fresh-run source check, numerical reproduction, and
-strict audit. It must not be interpreted as a source change between the fresh
-commitment and evaluation stages.
+`strict_source_identity_match` compares the currently shipped public source
+identity with the historical reference identity recorded for the original
+evaluation. A value of `false` does not mean that the source changed between
+the fresh commitment and evaluation stages. That within-run property is
+reported separately by `fresh_freeze_evaluate_source_bytes_match`.
 
 Historical-reference byte identity, fresh-run byte identity, protocol-content
 identity, and scientific numerical reproduction are reported separately.

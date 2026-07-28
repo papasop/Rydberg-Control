@@ -349,18 +349,18 @@ Lindblad/quantum mechanics.
 
 ## 9. Reference
 
-### Preliminary computational record
+### Archived computational record
 
-An earlier computational record was archived under the title:
+The current computational record is archived under the title:
 
 - *Prospective Noise-Robust Control on a Fixed-Unitary Fibre*,
-  Zenodo, 2026-07-27:
-  https://doi.org/10.5281/zenodo.21634625
+  Zenodo, 2026-07-28:
+  https://doi.org/10.5281/zenodo.21638025
 
-The current manuscript, *Prospective Noise-Robust Control within a
-Fixed-Unitary Fibre*, narrows and strengthens that earlier motivation into a
-task-relative prospective ranking and control-selection study. The earlier DOI
-must not be interpreted as the DOI of the current manuscript.
+This DOI identifies the archived computational record for the current
+fixed-unitary fibre reproduction package. It should still be read with the
+scope boundary above: exact local simulation, not PASQAL production
+compilation, cloud execution, or hardware evidence.
 
 The v1 path-response construction (CW/CCW/ALT lifts, K_z first-order closure
 to 1.1%) is described in the accompanying paper and reproduced by
